@@ -1,0 +1,6 @@
+{
+  "name": "Portail SERFIG 2027 - AEEMCI Région du Gôh (Gagnoa)",
+  "description": "Plateforme officielle de gestion, inscription, badges et suivi du Séminaire Régional de Formation Islamique du Gôh (SERFIG 2027 - AEEMCI Gagnoa).",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,366 @@
+import { SeminarConfig, Participant, DaySchedule, Donation } from '../types';
+import { SERFIG_2027_CONFIG, SEFIHA_2026_CONFIG, INITIAL_PARTICIPANTS, INITIAL_SCHEDULE } from '../data/initialData';
+
+const CONFIG_KEY = 'aeemci_seminar_active_config_v1';
+const PARTICIPANTS_KEY = 'aeemci_seminar_participants_v1';
+const SCHEDULE_KEY = 'aeemci_seminar_schedule_v1';
+const DONATIONS_KEY = 'aeemci_seminar_donations_v1';
+
+export function getActiveSeminarConfig(): SeminarConfig {
+  try {
+    const raw = localStorage.getItem(CONFIG_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      // Migrate away if previous cache had old Gontougo region or previous logo or old prices
+      if (
+        (parsed.region && parsed.region.toLowerCase().includes('gontougo')) ||
+        parsed.poloPrice !== 2500 ||
+        !parsed.subCommittees?.some((s: any) => s.id === 'sc-tonla')
+      ) {
+        saveSeminarConfig(SERFIG_2027_CONFIG);
+        return SERFIG_2027_CONFIG;
+      }
+      return parsed;
+    }
+  } catch (err) {
+    console.error('Failed to load seminar config from storage', err);
+  }
+  return SERFIG_2027_CONFIG;
+}
+
+export function saveSeminarConfig(config: SeminarConfig): void {
+  try {
+    localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
+  } catch (err) {
+    console.error('Failed to save seminar config', err);
+  }
+}
+
+export function resetSeminarConfigToPreset(preset: 'SERFIG_2027' | 'SEFIHA_2026'): SeminarConfig {
+  const selected = preset === 'SERFIG_2027' ? SERFIG_2027_CONFIG : SEFIHA_2026_CONFIG;
+  saveSeminarConfig(selected);
+  return selected;
+}
+
+export function getParticipants(): Participant[] {
+  try {
+    const raw = localStorage.getItem(PARTICIPANTS_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
+    }
+  } catch (err) {
+    console.error('Failed to load participants', err);
+  }
+  // Initialize with initial sample
+  localStorage.setItem(PARTICIPANTS_KEY, JSON.stringify(INITIAL_PARTICIPANTS));
+  return INITIAL_PARTICIPANTS;
+}
+
+export function saveParticipants(participants: Participant[]): void {
+  try {
+    localStorage.setItem(PARTICIPANTS_KEY, JSON.stringify(participants));
+  } catch (err) {
+    console.error('Failed to save participants', err);
+  }
+}
+
+export function generateMatricule(type: 'seminariste' | 'formateur' | 'commission', prefix: string = 'SERFIG27'): string {
+  const typeCode = type === 'seminariste' ? 'SEM' : type === 'formateur' ? 'FOR' : 'COM';
+  const randomNum = Math.floor(1000 + Math.random() * 9000);
+  return `${prefix}-${typeCode}-${randomNum}`;
+}
+
+export function addParticipant(participantData: Omit<Participant, 'id' | 'matricule' | 'registeredAt' | 'checkedIn'>, config: SeminarConfig): Participant {
+  const participants = getParticipants();
+  const prefix = config.acronym === 'SEFIHA' ? 'SEFIHA26' : 'SERFIG27';
+  const matricule = generateMatricule(participantData.type, prefix);
+  
+  // Auto-generate receipt number (like 24752 on official SENAFOI/SERFIG form)
+  const nextReceiptNumber = (24750 + participants.length + 1).toString();
+  
+  const defaultDorm = participantData.dormitory || (
+    participantData.gender === 'homme' 
+      ? 'Dortoir Frères A - Attribution auto' 
+      : 'Dortoir Sœurs B - Attribution auto'
+  );
+
+  const newParticipant: Participant = {
+    ...participantData,
+    id: 'part-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
+    matricule,
+    receiptNumber: participantData.receiptNumber || nextReceiptNumber,
+    dormitory: defaultDorm,
+    transportMode: participantData.transportMode || "Transport personnel depuis l'intérieur",
+    age: participantData.age || (participantData.type === 'formateur' ? 35 : participantData.type === 'commission' ? 24 : 19),
+    parentContact: participantData.parentContact || '01 01 36 23 21',
+    checkedIn: false,
+    courseAttendance: participantData.courseAttendance || {
+      validated: false
+    },
+    mealAttendance: participantData.mealAttendance || {
+      breakfast: false,
+      lunch: false,
+      dinner: false
+    },
+    registeredAt: new Date().toISOString()
+  };
+
+  const updated = [newParticipant, ...participants];
+  saveParticipants(updated);
+  return newParticipant;
+}
+
+export function updateParticipantStatus(id: string, updates: Partial<Participant>): Participant[] {
+  const participants = getParticipants();
+  const updated = participants.map(p => p.id === id ? { ...p, ...updates } : p);
+  saveParticipants(updated);
+  return updated;
+}
+
+export function toggleMealAttendance(identifier: string, meal: 'breakfast' | 'lunch' | 'dinner'): { success: boolean; participant?: Participant; message: string } {
+  const participants = getParticipants();
+  const cleanId = identifier.trim().toLowerCase();
+  
+  const index = participants.findIndex(p => 
+    p.id === identifier ||
+    p.matricule.toLowerCase() === cleanId ||
+    (p.receiptNumber && p.receiptNumber.toLowerCase() === cleanId) ||
+    p.phone.replace(/[\s\-\+]/g, '') === cleanId.replace(/[\s\-\+]/g, '')
+  );
+
+  if (index === -1) {
+    return { success: false, message: 'Aucun participant trouvé pour ce matricule, reçu ou contact.' };
+  }
+
+  const p = participants[index];
+  const currentMeals = p.mealAttendance || { breakfast: false, lunch: false, dinner: false };
+  const now = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  const isNowActive = !currentMeals[meal];
+  
+  const mealNameFr = meal === 'breakfast' ? 'Petit-déjeuner' : meal === 'lunch' ? 'Déjeuner' : 'Dîner';
+
+  const updatedMeals = {
+    ...currentMeals,
+    [meal]: isNowActive,
+    [`${meal}At`]: isNowActive ? now : undefined,
+    lastMealName: isNowActive ? mealNameFr : currentMeals.lastMealName,
+    lastMealAt: isNowActive ? now : currentMeals.lastMealAt
+  };
+
+  const updatedParticipant = {
+    ...p,
+    mealAttendance: updatedMeals
+  };
+
+  participants[index] = updatedParticipant;
+  saveParticipants(participants);
+
+  return {
+    success: true,
+    participant: updatedParticipant,
+    message: isNowActive 
+      ? `Repas (${mealNameFr}) validé pour ${p.fullName} à ${now}. Passage restaurant confirmé.`
+      : `Repas (${mealNameFr}) annulé pour ${p.fullName}.`
+  };
+}
+
+export function toggleCourseAttendance(identifier: string): { success: boolean; participant?: Participant; message: string } {
+  const participants = getParticipants();
+  const cleanId = identifier.trim().toLowerCase();
+  
+  const index = participants.findIndex(p => 
+    p.id === identifier ||
+    p.matricule.toLowerCase() === cleanId ||
+    (p.receiptNumber && p.receiptNumber.toLowerCase() === cleanId) ||
+    p.phone.replace(/[\s\-\+]/g, '') === cleanId.replace(/[\s\-\+]/g, '')
+  );
+
+  if (index === -1) {
+    return { success: false, message: 'Aucun participant trouvé pour ce matricule, reçu ou contact.' };
+  }
+
+  const p = participants[index];
+  const current = p.courseAttendance || { validated: false };
+  const now = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  const isNowValid = !current.validated;
+
+  const updatedCourse = {
+    validated: isNowValid,
+    validatedAt: isNowValid ? now : undefined,
+    courseTitle: 'Sciences Islamiques & Fiqh — SERFIG 2027',
+    supervisor: 'Commission Pédagogique Gôh'
+  };
+
+  const updatedParticipant = {
+    ...p,
+    courseAttendance: updatedCourse
+  };
+
+  participants[index] = updatedParticipant;
+  saveParticipants(participants);
+
+  return {
+    success: true,
+    participant: updatedParticipant,
+    message: isNowValid
+      ? `Présence aux cours validée pour ${p.fullName} à ${now}.`
+      : `Présence aux cours annulée pour ${p.fullName}.`
+  };
+}
+
+export function checkInParticipant(identifier: string): { success: boolean; participant?: Participant; message: string } {
+  const participants = getParticipants();
+  const cleanId = identifier.trim().toLowerCase();
+  
+  const found = participants.find(p => 
+    p.matricule.toLowerCase() === cleanId || 
+    p.phone.replace(/[\s\-\+]/g, '') === cleanId.replace(/[\s\-\+]/g, '') ||
+    p.id === identifier
+  );
+
+  if (!found) {
+    return { success: false, message: 'Aucun participant trouvé avec ce matricule ou numéro.' };
+  }
+
+  if (found.checkedIn) {
+    return { 
+      success: true, 
+      participant: found, 
+      message: `Ce participant (${found.fullName}) est déjà émargé le ${new Date(found.checkedInAt || '').toLocaleTimeString('fr-FR')}.` 
+    };
+  }
+
+  const updatedParticipant: Participant = {
+    ...found,
+    checkedIn: true,
+    checkedInAt: new Date().toISOString()
+  };
+
+  const updatedList = participants.map(p => p.id === found.id ? updatedParticipant : p);
+  saveParticipants(updatedList);
+
+  return {
+    success: true,
+    participant: updatedParticipant,
+    message: `Pointage réussi ! Bienvenue à ${found.fullName} (${found.subCommittee}).`
+  };
+}
+
+export function deleteParticipant(id: string): Participant[] {
+  const participants = getParticipants();
+  const updated = participants.filter(p => p.id !== id);
+  saveParticipants(updated);
+  return updated;
+}
+
+export function getSchedule(): DaySchedule[] {
+  try {
+    const raw = localStorage.getItem(SCHEDULE_KEY);
+    if (raw) {
+      return JSON.parse(raw);
+    }
+  } catch (err) {
+    console.error('Failed to load schedule', err);
+  }
+  return INITIAL_SCHEDULE;
+}
+
+export function getDonations(): Donation[] {
+  try {
+    const raw = localStorage.getItem(DONATIONS_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch (e) {
+    console.error(e);
+  }
+  return [
+    {
+      id: 'don-1',
+      donorName: 'El Hadj Bamba Moussa (Ancien AEEMCI)',
+      donorPhone: '+225 07 07 11 22 33',
+      amount: 50000,
+      purpose: 'Parrainage de 15 élèves nécessiteux du séminaire',
+      date: '2027-03-24',
+      paymentMethod: 'Wave'
+    },
+    {
+      id: 'don-2',
+      donorName: 'Dr. Cissé Kady',
+      donorPhone: '+225 05 05 33 44 55',
+      amount: 25000,
+      purpose: 'Soutien Restauration et Santé',
+      date: '2027-03-28',
+      paymentMethod: 'Orange Money'
+    }
+  ];
+}
+
+export function addDonation(donation: Omit<Donation, 'id' | 'date'>): Donation {
+  const donations = getDonations();
+  const newDonation: Donation = {
+    ...donation,
+    id: 'don-' + Date.now(),
+    date: new Date().toISOString().split('T')[0]
+  };
+  const updated = [newDonation, ...donations];
+  localStorage.setItem(DONATIONS_KEY, JSON.stringify(updated));
+  return newDonation;
+}
+
+export function exportParticipantsToCSV(participants: Participant[]): void {
+  const headers = [
+    'Matricule',
+    'Nom & Prénom',
+    'Type',
+    'Genre',
+    'Téléphone',
+    'WhatsApp',
+    'Sous-Comité',
+    'Niveau / Établissement',
+    'Polo',
+    'Taille Polo',
+    'Couleur Polo',
+    'Frais Inscription (FCFA)',
+    'Frais Polo (FCFA)',
+    'Total (FCFA)',
+    'Statut Paiement',
+    'Moyen Paiement',
+    'Référence',
+    'Émargé / Présent',
+    'Date Inscription'
+  ];
+
+  const rows = participants.map(p => [
+    `"${p.matricule}"`,
+    `"${p.fullName.replace(/"/g, '""')}"`,
+    `"${p.type}"`,
+    `"${p.gender}"`,
+    `"${p.phone}"`,
+    `"${p.whatsapp}"`,
+    `"${p.subCommittee}"`,
+    `"${(p.schoolLevel || p.teachingSubject || p.commission || '').replace(/"/g, '""')}"`,
+    `"${p.hasPolo ? 'OUI' : 'NON'}"`,
+    `"${p.poloSize || '-'}"`,
+    `"${p.poloColor || '-'}"`,
+    p.registrationFee,
+    p.poloFee,
+    p.totalFee,
+    `"${p.paymentStatus}"`,
+    `"${p.paymentMethod || '-'}"`,
+    `"${p.paymentReference || '-'}"`,
+    `"${p.checkedIn ? 'OUI' : 'NON'}"`,
+    `"${new Date(p.registeredAt).toLocaleDateString('fr-FR')}"`
+  ]);
+
+  const csvContent = '\uFEFF' + [headers.join(';'), ...rows.map(r => r.join(';'))].join('\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.setAttribute('href', url);
+  link.setAttribute('download', `participants_serfig_${new Date().toISOString().split('T')[0]}.csv`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
