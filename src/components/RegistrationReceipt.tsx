@@ -20,7 +20,7 @@ import {
   AlertTriangle,
   Sparkles
 } from 'lucide-react';
-import { updateParticipantStatus } from '../services/storage';
+import { updateParticipantStatus, calculateAge } from '../services/storage';
 
 interface RegistrationReceiptProps {
   participant: Participant;
@@ -51,7 +51,7 @@ export const RegistrationReceipt: React.FC<RegistrationReceiptProps> = ({
       matricule: participant.matricule,
       nom: participant.fullName,
       statut: participant.type,
-      recu: participant.receiptNumber || '24752',
+      recu: participant.receiptNumber || '—',
       region: config.region,
       action: 'ESPACE_SEMINARISTE_SERFIG2027'
     });
@@ -149,22 +149,37 @@ export const RegistrationReceipt: React.FC<RegistrationReceiptProps> = ({
   // Specific labels and consignes by participant type
   const getStatusInfo = () => {
     switch (participant.type) {
-      case 'formateur':
+      case 'formateur': {
+        const isAine = participant.trainerSubtype === 'aine';
         return {
-          titleHeader: 'FICHE D\'INSCRIPTION FORMATEUR - RECU SERFIG 27',
-          statusLabel: 'FORMATEUR',
-          matriculeLabel: 'MATRICULE FORMATEUR',
-          identificationTitle: 'IDENTIFICATION DU FORMATEUR',
-          consignesTitle: 'CONSIGNES POUR LES FORMATEURS ET ENSEIGNANTS',
-          intro: 'En tant que Formateur, vous devez prévoir :',
-          items: [
+          titleHeader: isAine 
+            ? 'FICHE D\'INSCRIPTION AÎNÉ DE L\'AEEMCI - REÇU SERFIG 27'
+            : 'FICHE D\'INSCRIPTION FORMATEUR - REÇU SERFIG 27',
+          statusLabel: isAine ? 'AÎNÉ DE L\'AEEMCI' : 'FORMATEUR',
+          matriculeLabel: isAine ? 'MATRICULE AÎNÉ' : 'MATRICULE FORMATEUR',
+          identificationTitle: isAine ? 'IDENTIFICATION DE L\'AÎNÉ DE L\'AEEMCI' : 'IDENTIFICATION DU FORMATEUR',
+          consignesTitle: isAine 
+            ? 'CONSIGNES POUR LES AÎNÉS ET CONSEILLERS DE L\'AEEMCI' 
+            : 'CONSIGNES POUR LES FORMATEURS ET ENSEIGNANTS',
+          intro: isAine ? 'En tant qu\'Aîné de l\'AEEMCI, vous êtes invité à prévoir :' : 'En tant que Formateur, vous devez prévoir :',
+          items: isAine ? [
+            'Votre badge et cette fiche d\'enregistrement pour l\'accès aux espaces réservés.',
+            'Vos notes de partage d\'expérience, d\'orientation professionnelle et d\'éthique.',
+            'Tenue soignée et exemplaire conformément aux valeurs de l\'AEEMCI.',
+            'Vos effets personnels de séjour et votre pièce d\'identité officielle.'
+          ] : [
             'Vos supports pédagogiques complets (polycopiés, fiches de cours, clés USB, présentations).',
             'Tenue soignée, exemplaire et conforme à la dignité et à la bienséance islamique.',
             'Vos effets personnels de séjour et votre pièce d\'identité officielle.',
             'Votre fiche d\'inscription et ce reçu pour l\'accès prioritaire au réfectoire et aux salles de cours.'
           ],
-          responsibilitiesTitle: 'Responsabilités pédagogiques :',
-          responsibilities: [
+          responsibilitiesTitle: isAine ? 'Rôle consultatif & parrainage :' : 'Responsabilités pédagogiques :',
+          responsibilities: isAine ? [
+            'Partage d\'expérience et écoute active de la jeune génération d\'élèves et étudiants.',
+            'Conseils stratégiques auprès du bureau régional et de la commission d\'organisation.',
+            'Animation de panels d\'orientation académique, professionnelle et d\'entrepreneuriat.',
+            'Transmission vivante de la devise de l\'AEEMCI : Science - Foi - Action.'
+          ] : [
             'Respect scrupuleux des horaires d\'ouverture et de clôture de chaque module d\'enseignement.',
             'Émargement des feuilles de présence des séminaristes à chaque début de séance.',
             'Disponibilité pour les séances d\'orientation doctrinale et les questions-réponses des séminaristes.',
@@ -176,6 +191,7 @@ export const RegistrationReceipt: React.FC<RegistrationReceiptProps> = ({
             { label: 'Urgences & Assistance', phone: '+225 01 02 03 04 05' }
           ]
         };
+      }
 
       case 'commission':
         return {
@@ -346,7 +362,7 @@ export const RegistrationReceipt: React.FC<RegistrationReceiptProps> = ({
           <div className="flex items-center gap-1.5">
             <span className="text-slate-600 font-normal">REÇU N° :</span>
             <span className="font-mono font-black text-emerald-900 text-sm">
-              {participant.receiptNumber || '24752'}
+              {participant.receiptNumber || '—'}
             </span>
           </div>
 
@@ -400,7 +416,7 @@ export const RegistrationReceipt: React.FC<RegistrationReceiptProps> = ({
 
                 <div className="flex items-baseline justify-between border-b border-slate-100 pb-1">
                   <span className="text-slate-600 font-medium text-xs">Niveau d'étude :</span>
-                  <span className="font-bold text-slate-900">{participant.schoolLevel || 'Université'}</span>
+                  <span className="font-bold text-slate-900">{participant.schoolLevel || '—'}</span>
                 </div>
 
                 <div className="flex items-baseline justify-between border-b border-slate-100 pb-1">
@@ -425,18 +441,20 @@ export const RegistrationReceipt: React.FC<RegistrationReceiptProps> = ({
                 <div className="flex items-baseline justify-between border-b border-slate-100 pb-1">
                   <span className="text-slate-600 font-medium text-xs">Dortoir :</span>
                   <span className="font-bold text-emerald-900">
-                    {participant.dormitory || (participant.gender === 'homme' ? 'Dortoir Frères A - Attribution auto' : 'Dortoir Sœurs B - Attribution auto')}
+                    {participant.dormitory || '—'}
                   </span>
                 </div>
 
                 <div className="flex items-baseline justify-between border-b border-slate-100 pb-1">
                   <span className="text-slate-600 font-medium text-xs">Âge :</span>
-                  <span className="font-bold text-slate-900">{participant.age || 20} ans</span>
+                  <span className="font-bold text-slate-900">
+                    {calculateAge(participant.birthDate) !== null ? `${calculateAge(participant.birthDate)} ans` : '—'}
+                  </span>
                 </div>
 
                 <div className="flex items-baseline justify-between border-b border-slate-100 pb-1">
                   <span className="text-slate-600 font-medium text-xs">Contact Parent / Tuteur :</span>
-                  <span className="font-bold text-slate-900 font-mono">{participant.parentContact || '01 01 36 23 21'}</span>
+                  <span className="font-bold text-slate-900 font-mono">{participant.parentContact || '—'}</span>
                 </div>
 
                 {/* Specific field for Formateur */}
@@ -524,7 +542,7 @@ export const RegistrationReceipt: React.FC<RegistrationReceiptProps> = ({
                 <div className="flex items-baseline justify-between border-b border-slate-100 pb-1">
                   <span className="text-slate-600 font-medium text-xs">Mode transport :</span>
                   <span className="font-bold text-slate-900">
-                    {participant.transportMode || 'Transport personnel depuis l\'intérieur'}
+                    {participant.transportMode || '—'}
                   </span>
                 </div>
 

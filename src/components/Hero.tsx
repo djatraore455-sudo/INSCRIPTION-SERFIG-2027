@@ -49,7 +49,14 @@ export const Hero: React.FC<HeroProps> = ({
         {/* Main Prominent White Button with Orange Text */}
         <div className="mb-10 flex justify-center">
           <button
-            onClick={onOpenRegister}
+            onClick={() => {
+              const el = document.getElementById('types-inscription');
+              if (el) {
+                el.scrollIntoView({ behavior: 'smooth' });
+              } else {
+                onOpenRegister();
+              }
+            }}
             className="px-8 py-4 rounded-full font-extrabold text-sm sm:text-base text-orange-600 bg-white hover:bg-orange-50 shadow-2xl hover:shadow-white/20 transition-all flex items-center gap-2 cursor-pointer transform hover:-translate-y-0.5 active:translate-y-0"
           >
             <User className="w-4 h-4 fill-orange-600 text-orange-600" />

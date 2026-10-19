@@ -3,6 +3,7 @@ import QRCode from 'qrcode';
 import { Participant, SeminarConfig } from '../types';
 import { AeemciLogo } from './AeemciLogo';
 import { Printer, Download, CheckCircle, Clock, ShieldCheck, User, QrCode as QrIcon } from 'lucide-react';
+import { calculateAge } from '../services/storage';
 
 interface BadgeCardProps {
   participant: Participant;
@@ -55,7 +56,7 @@ export const BadgeCard: React.FC<BadgeCardProps> = ({ participant, config, showA
   const getRoleBadgeTitle = () => {
     switch (participant.type) {
       case 'formateur':
-        return 'FORMATEUR OFFICIEL';
+        return participant.trainerSubtype === 'aine' ? "AÎNÉ DE L'AEEMCI" : 'FORMATEUR OFFICIEL';
       case 'commission':
         return `COMMISSION : ${(participant.commission || 'ORGANISATION').toUpperCase()}`;
       default:
@@ -130,10 +131,13 @@ export const BadgeCard: React.FC<BadgeCardProps> = ({ participant, config, showA
           </div>
 
           {/* Additional details */}
-          <div className="mt-2 text-xs text-slate-600">
+          <div className="mt-2 text-xs text-slate-600 space-y-0.5">
             {participant.schoolLevel && (
-              <p className="font-semibold text-slate-700">{participant.schoolLevel} • {participant.schoolName}</p>
+              <p className="font-semibold text-slate-700">{participant.schoolLevel} • {participant.schoolName || '—'}</p>
             )}
+            <p className="text-[11px] text-slate-600 font-medium">
+              Âge : <span className="font-bold text-slate-800">{calculateAge(participant.birthDate) !== null ? `${calculateAge(participant.birthDate)} ans` : '—'}</span>
+            </p>
             {participant.teachingSubject && (
               <p className="font-bold text-blue-800">Module : {participant.teachingSubject}</p>
             )}

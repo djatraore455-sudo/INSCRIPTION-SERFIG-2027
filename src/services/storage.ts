@@ -42,21 +42,38 @@ export function resetSeminarConfigToPreset(preset: 'SERFIG_2027' | 'SEFIHA_2026'
   return selected;
 }
 
+/**
+ * Calcule l'âge en années révolues à partir d'une date de naissance au format ISO (AAAA-MM-JJ).
+ * Renvoie null si la date est absente ou invalide.
+ */
+export function calculateAge(birthDate?: string): number | null {
+  if (!birthDate) return null;
+  const birth = new Date(birthDate);
+  if (isNaN(birth.getTime())) return null;
+  const today = new Date();
+  let age = today.getFullYear() - birth.getFullYear();
+  const monthDiff = today.getMonth() - birth.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+    age--;
+  }
+  return age >= 0 ? age : null;
+}
+
 export function getParticipants(): Participant[] {
   try {
     const raw = localStorage.getItem(PARTICIPANTS_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed;
+      if (Array.isArray(parsed)) {
+        // Supprime les éventuelles anciennes données de démo enregistrées dans le navigateur
+        return parsed.filter(p => !p.id?.startsWith('part-00'));
       }
     }
   } catch (err) {
     console.error('Failed to load participants', err);
   }
-  // Initialize with initial sample
-  localStorage.setItem(PARTICIPANTS_KEY, JSON.stringify(INITIAL_PARTICIPANTS));
-  return INITIAL_PARTICIPANTS;
+  // Ne pré-remplit plus aucune donnée d'exemple en production
+  return [];
 }
 
 export function saveParticipants(participants: Participant[]): void {
@@ -77,25 +94,16 @@ export function addParticipant(participantData: Omit<Participant, 'id' | 'matric
   const participants = getParticipants();
   const prefix = config.acronym === 'SEFIHA' ? 'SEFIHA26' : 'SERFIG27';
   const matricule = generateMatricule(participantData.type, prefix);
-  
-  // Auto-generate receipt number (like 24752 on official SENAFOI/SERFIG form)
-  const nextReceiptNumber = (24750 + participants.length + 1).toString();
-  
-  const defaultDorm = participantData.dormitory || (
-    participantData.gender === 'homme' 
-      ? 'Dortoir Frères A - Attribution auto' 
-      : 'Dortoir Sœurs B - Attribution auto'
-  );
 
   const newParticipant: Participant = {
     ...participantData,
     id: 'part-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
     matricule,
-    receiptNumber: participantData.receiptNumber || nextReceiptNumber,
-    dormitory: defaultDorm,
-    transportMode: participantData.transportMode || "Transport personnel depuis l'intérieur",
-    age: participantData.age || (participantData.type === 'formateur' ? 35 : participantData.type === 'commission' ? 24 : 19),
-    parentContact: participantData.parentContact || '01 01 36 23 21',
+    receiptNumber: participantData.receiptNumber || undefined,
+    dormitory: participantData.dormitory || undefined,
+    transportMode: participantData.transportMode || undefined,
+    birthDate: participantData.birthDate || undefined,
+    parentContact: participantData.parentContact || undefined,
     checkedIn: false,
     courseAttendance: participantData.courseAttendance || {
       validated: false
@@ -271,30 +279,16 @@ export function getSchedule(): DaySchedule[] {
 export function getDonations(): Donation[] {
   try {
     const raw = localStorage.getItem(DONATIONS_KEY);
-    if (raw) return JSON.parse(raw);
-  } catch (e) {
-    console.error(e);
-  }
-  return [
-    {
-      id: 'don-1',
-      donorName: 'El Hadj Bamba Moussa (Ancien AEEMCI)',
-      donorPhone: '+225 07 07 11 22 33',
-      amount: 50000,
-      purpose: 'Parrainage de 15 élèves nécessiteux du séminaire',
-      date: '2027-03-24',
-      paymentMethod: 'Wave'
-    },
-    {
-      id: 'don-2',
-      donorName: 'Dr. Cissé Kady',
-      donorPhone: '+225 05 05 33 44 55',
-      amount: 25000,
-      purpose: 'Soutien Restauration et Santé',
-      date: '2027-03-28',
-      paymentMethod: 'Orange Money'
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return parsed.filter(d => d.id !== 'don-1' && d.id !== 'don-2');
+      }
     }
-  ];
+  } catch (e) {
+    console.error('Failed to load donations', e);
+  }
+  return [];
 }
 
 export function addDonation(donation: Omit<Donation, 'id' | 'date'>): Donation {
@@ -315,44 +309,59 @@ export function exportParticipantsToCSV(participants: Participant[]): void {
     'Nom & Prénom',
     'Type',
     'Genre',
+    'Date de Naissance',
+    'Âge',
     'Téléphone',
     'WhatsApp',
     'Sous-Comité',
     'Niveau / Établissement',
-    'Polo',
-    'Taille Polo',
-    'Couleur Polo',
+    'Contact Parent',
+    'Dortoir',
+    'Mode de Transport',
+    'Tenue (Polo / T-shirt)',
+    'Taille',
+    'Couleur',
     'Frais Inscription (FCFA)',
-    'Frais Polo (FCFA)',
+    'Frais Tenue (FCFA)',
     'Total (FCFA)',
     'Statut Paiement',
     'Moyen Paiement',
-    'Référence',
+    'Référence Paiement',
+    'N° Reçu',
     'Émargé / Présent',
     'Date Inscription'
   ];
 
-  const rows = participants.map(p => [
-    `"${p.matricule}"`,
-    `"${p.fullName.replace(/"/g, '""')}"`,
-    `"${p.type}"`,
-    `"${p.gender}"`,
-    `"${p.phone}"`,
-    `"${p.whatsapp}"`,
-    `"${p.subCommittee}"`,
-    `"${(p.schoolLevel || p.teachingSubject || p.commission || '').replace(/"/g, '""')}"`,
-    `"${p.hasPolo ? 'OUI' : 'NON'}"`,
-    `"${p.poloSize || '-'}"`,
-    `"${p.poloColor || '-'}"`,
-    p.registrationFee,
-    p.poloFee,
-    p.totalFee,
-    `"${p.paymentStatus}"`,
-    `"${p.paymentMethod || '-'}"`,
-    `"${p.paymentReference || '-'}"`,
-    `"${p.checkedIn ? 'OUI' : 'NON'}"`,
-    `"${new Date(p.registeredAt).toLocaleDateString('fr-FR')}"`
-  ]);
+  const rows = participants.map(p => {
+    const ageVal = calculateAge(p.birthDate);
+    return [
+      `"${p.matricule || '—'}"`,
+      `"${p.fullName.replace(/"/g, '""')}"`,
+      `"${p.type}"`,
+      `"${p.gender}"`,
+      `"${p.birthDate || '—'}"`,
+      `"${ageVal !== null ? ageVal : '—'}"`,
+      `"${p.phone || '—'}"`,
+      `"${p.whatsapp || '—'}"`,
+      `"${p.subCommittee || '—'}"`,
+      `"${(p.schoolLevel || p.teachingSubject || p.commission || '—').replace(/"/g, '""')}"`,
+      `"${p.parentContact || '—'}"`,
+      `"${p.dormitory || '—'}"`,
+      `"${p.transportMode || '—'}"`,
+      `"${p.hasPolo ? (p.clothingType === 'tshirt' ? 'T-shirt' : 'Polo') : 'NON'}"`,
+      `"${p.poloSize || '—'}"`,
+      `"${p.poloColor || '—'}"`,
+      p.registrationFee,
+      p.poloFee,
+      p.totalFee,
+      `"${p.paymentStatus}"`,
+      `"${p.paymentMethod || '—'}"`,
+      `"${p.paymentReference || '—'}"`,
+      `"${p.receiptNumber || '—'}"`,
+      `"${p.checkedIn ? 'OUI' : 'NON'}"`,
+      `"${new Date(p.registeredAt).toLocaleDateString('fr-FR')}"`
+    ];
+  });
 
   const csvContent = '\uFEFF' + [headers.join(';'), ...rows.map(r => r.join(';'))].join('\n');
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });

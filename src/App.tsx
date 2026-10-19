@@ -11,8 +11,9 @@ import { RegistrationModal } from './components/RegistrationModal';
 import { VerifyRegistrationModal } from './components/VerifyRegistrationModal';
 import { AdminModal } from './components/AdminModal';
 import { SponsorModal } from './components/SponsorModal';
+import { ParticipantSpaceModal } from './components/ParticipantSpaceModal';
 import { Footer } from './components/Footer';
-import { UserCheck, Sparkles, Shield, ArrowRight } from 'lucide-react';
+import { UserCheck, Sparkles, Shield, ArrowRight, FileText } from 'lucide-react';
 
 export default function App() {
   const [config, setConfig] = useState<SeminarConfig>(() => getActiveSeminarConfig());
@@ -23,6 +24,10 @@ export default function App() {
   const [isVerifyOpen, setIsVerifyOpen] = useState(false);
   const [isAdminOpen, setIsAdminOpen] = useState(false);
   const [isSponsorOpen, setIsSponsorOpen] = useState(false);
+  
+  // Participant Space & Receipt Modal state
+  const [isParticipantSpaceOpen, setIsParticipantSpaceOpen] = useState(false);
+  const [currentSpaceParticipant, setCurrentSpaceParticipant] = useState<Participant | null>(null);
 
   // Sync title with active seminar
   useEffect(() => {
@@ -34,6 +39,32 @@ export default function App() {
     setIsRegisterOpen(true);
   };
 
+  const handleScrollToTypes = () => {
+    const el = document.getElementById('types-inscription');
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth' });
+    } else {
+      handleOpenRegister('seminariste');
+    }
+  };
+
+  const handleOpenParticipantSpace = (participant?: Participant) => {
+    if (participant) {
+      setCurrentSpaceParticipant(participant);
+      setIsParticipantSpaceOpen(true);
+      return;
+    }
+
+    const participants = getParticipants();
+    if (participants.length > 0) {
+      // Open with first participant (e.g. DOUMBIA Allassane from user reference)
+      setCurrentSpaceParticipant(participants[0]);
+      setIsParticipantSpaceOpen(true);
+    } else {
+      setIsVerifyOpen(true);
+    }
+  };
+
   const handleConfigUpdated = (newConfig: SeminarConfig) => {
     setConfig(newConfig);
   };
@@ -43,17 +74,18 @@ export default function App() {
       {/* Navigation */}
       <Navbar
         config={config}
-        onOpenRegister={() => handleOpenRegister('seminariste')}
+        onOpenRegister={handleScrollToTypes}
         onOpenVerify={() => setIsVerifyOpen(true)}
         onOpenAdmin={() => setIsAdminOpen(true)}
         onOpenSponsor={() => setIsSponsorOpen(true)}
+        onOpenParticipantSpace={() => handleOpenParticipantSpace()}
       />
 
       <main className="flex-1">
         {/* Hero Section */}
         <Hero
           config={config}
-          onOpenRegister={() => handleOpenRegister('seminariste')}
+          onOpenRegister={handleScrollToTypes}
           onOpenVerify={() => setIsVerifyOpen(true)}
           onOpenAdmin={() => setIsAdminOpen(true)}
         />
@@ -71,7 +103,7 @@ export default function App() {
         {/* Official Polo Boutique Section */}
         <PoloSection
           config={config}
-          onOpenRegister={() => handleOpenRegister('seminariste')}
+          onOpenRegister={handleScrollToTypes}
         />
 
         {/* Guide & Rules & FAQ */}
@@ -82,26 +114,35 @@ export default function App() {
       <Footer
         config={config}
         onOpenAdmin={() => setIsAdminOpen(true)}
-        onOpenRegister={() => handleOpenRegister('seminariste')}
+        onOpenRegister={handleScrollToTypes}
         onOpenVerify={() => setIsVerifyOpen(true)}
       />
 
       {/* Floating Bottom Quick Bar (Mobile & Quick Access) */}
-      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-30 max-w-sm w-[92%] sm:w-auto bg-slate-900/90 backdrop-blur-md text-white px-4 py-2.5 rounded-full shadow-2xl border border-slate-700/80 flex items-center justify-between sm:gap-4">
+      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-30 max-w-md w-[95%] sm:w-auto bg-slate-900/90 backdrop-blur-md text-white px-4 py-2.5 rounded-full shadow-2xl border border-slate-700/80 flex items-center justify-between sm:gap-3">
         <button
-          onClick={() => handleOpenRegister('seminariste')}
-          className="px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white font-black rounded-full text-xs transition-all flex items-center gap-1.5 cursor-pointer shadow-md shadow-orange-600/25"
+          onClick={handleScrollToTypes}
+          className="px-3.5 py-2 bg-orange-600 hover:bg-orange-500 text-white font-black rounded-full text-xs transition-all flex items-center gap-1.5 cursor-pointer shadow-md shadow-orange-600/25"
         >
           <Sparkles className="w-3.5 h-3.5 text-white" />
-          <span>S'inscrire SERFIG</span>
+          <span>S'inscrire</span>
+        </button>
+
+        <button
+          onClick={() => handleOpenParticipantSpace()}
+          className="px-3 py-1.5 text-xs font-bold text-emerald-300 hover:text-white transition-all flex items-center gap-1.5 cursor-pointer"
+          title="Consulter mon Reçu A4 & Émargement"
+        >
+          <FileText className="w-3.5 h-3.5 text-emerald-400" />
+          <span>Mon Reçu</span>
         </button>
 
         <button
           onClick={() => setIsVerifyOpen(true)}
           className="px-3 py-1.5 text-xs font-bold text-slate-200 hover:text-white transition-all flex items-center gap-1.5 cursor-pointer"
         >
-          <UserCheck className="w-3.5 h-3.5 text-emerald-400" />
-          <span>Mon Badge</span>
+          <UserCheck className="w-3.5 h-3.5 text-slate-300" />
+          <span>Badge</span>
         </button>
 
         <div className="h-4 w-[1px] bg-slate-700"></div>
@@ -122,12 +163,14 @@ export default function App() {
         onClose={() => setIsRegisterOpen(false)}
         config={config}
         initialType={registerInitialType}
+        onOpenParticipantSpace={(p) => handleOpenParticipantSpace(p)}
       />
 
       <VerifyRegistrationModal
         isOpen={isVerifyOpen}
         onClose={() => setIsVerifyOpen(false)}
         config={config}
+        onOpenParticipantSpace={(p) => handleOpenParticipantSpace(p)}
       />
 
       <AdminModal
@@ -135,6 +178,7 @@ export default function App() {
         onClose={() => setIsAdminOpen(false)}
         config={config}
         onConfigUpdated={handleConfigUpdated}
+        onOpenParticipantSpace={(p) => handleOpenParticipantSpace(p)}
       />
 
       <SponsorModal
@@ -142,6 +186,18 @@ export default function App() {
         onClose={() => setIsSponsorOpen(false)}
         config={config}
       />
+
+      {currentSpaceParticipant && (
+        <ParticipantSpaceModal
+          isOpen={isParticipantSpaceOpen}
+          onClose={() => setIsParticipantSpaceOpen(false)}
+          participant={currentSpaceParticipant}
+          config={config}
+          onUpdateParticipant={(updated) => {
+            setCurrentSpaceParticipant(updated);
+          }}
+        />
+      )}
     </div>
   );
 }

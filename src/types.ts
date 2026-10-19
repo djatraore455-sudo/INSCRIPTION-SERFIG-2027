@@ -76,7 +76,7 @@ export interface Participant {
   subCommittee: string;
   schoolLevel?: string; // 'Collège' | 'Lycée' | 'Université' | 'Autre'
   schoolName?: string;
-  age?: number;
+  birthDate?: string; // Format ISO: AAAA-MM-JJ
   parentContact?: string;
   dormitory?: string;
   transportMode?: string;
@@ -88,13 +88,18 @@ export interface Participant {
   poloColor?: string;
   clothingFee?: number;
   
-  // Specific for formateurs
+  // Specific for formateurs & aînés
+  trainerSubtype?: 'formateur' | 'aine';
   teachingSubject?: string;
   trainerBio?: string;
+  trainerTitle?: string;
+  availability?: string;
   
   // Specific for commission
   commission?: string;
   commissionRole?: string;
+  commissionExperience?: string;
+  wavePhoneNumber?: string;
   
   // Finances
   registrationFee: number;

@@ -21,7 +21,7 @@ import {
   Sparkles,
   ChevronRight
 } from 'lucide-react';
-import { updateParticipantStatus } from '../services/storage';
+import { updateParticipantStatus, calculateAge } from '../services/storage';
 
 interface ParticipantSpaceModalProps {
   participant: Participant;
@@ -103,7 +103,7 @@ export const ParticipantSpaceModal: React.FC<ParticipantSpaceModalProps> = ({
                   {participant.matricule}
                 </span>
                 <span className="px-2.5 py-0.5 rounded-full bg-white/15 text-emerald-100 text-xs font-bold">
-                  Reçu N° {participant.receiptNumber || '24752'}
+                  Reçu N° {participant.receiptNumber || '—'}
                 </span>
               </div>
 
@@ -117,7 +117,9 @@ export const ParticipantSpaceModal: React.FC<ParticipantSpaceModalProps> = ({
                   {participant.subCommittee} ({config.region})
                 </span>
                 <span>•</span>
-                <span>Dortoir : {participant.dormitory || 'Attribution auto'}</span>
+                <span>Âge : {calculateAge(participant.birthDate) !== null ? `${calculateAge(participant.birthDate)} ans` : '—'}</span>
+                <span>•</span>
+                <span>Dortoir : {participant.dormitory || '—'}</span>
                 <span>•</span>
                 <span className="font-semibold text-amber-200">
                   {participant.paymentStatus === 'paye' ? 'Paiement Validé' : 'En attente de paiement'}

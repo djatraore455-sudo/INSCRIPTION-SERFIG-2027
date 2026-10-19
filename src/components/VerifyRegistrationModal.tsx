@@ -2,22 +2,26 @@ import React, { useState } from 'react';
 import { Participant, SeminarConfig } from '../types';
 import { getParticipants, updateParticipantStatus } from '../services/storage';
 import { BadgeCard } from './BadgeCard';
-import { Search, X, CheckCircle, Clock, AlertTriangle, CreditCard } from 'lucide-react';
+import { RegistrationReceipt } from './RegistrationReceipt';
+import { Search, X, CheckCircle, Clock, AlertTriangle, CreditCard, FileText, IdCard, Sparkles } from 'lucide-react';
 
 interface VerifyRegistrationModalProps {
   isOpen: boolean;
   onClose: () => void;
   config: SeminarConfig;
+  onOpenParticipantSpace?: (participant: Participant) => void;
 }
 
 export const VerifyRegistrationModal: React.FC<VerifyRegistrationModalProps> = ({
   isOpen,
   onClose,
-  config
+  config,
+  onOpenParticipantSpace
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [searched, setSearched] = useState(false);
   const [foundParticipant, setFoundParticipant] = useState<Participant | null>(null);
+  const [activeTab, setActiveTab] = useState<'receipt' | 'badge'>('receipt');
   const [transactionRef, setTransactionRef] = useState('');
   const [isUpdatingRef, setIsUpdatingRef] = useState(false);
   const [message, setMessage] = useState('');
@@ -184,9 +188,67 @@ export const VerifyRegistrationModal: React.FC<VerifyRegistrationModalProps> = (
                     </div>
                   )}
 
-                  {/* Badge Card view */}
-                  <div className="pt-2 flex justify-center">
-                    <BadgeCard participant={foundParticipant} config={config} showActions={true} />
+                  {/* Action buttons and View Switcher */}
+                  <div className="pt-2 flex flex-wrap items-center justify-between gap-2 border-t border-slate-200">
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('receipt')}
+                        className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                          activeTab === 'receipt'
+                            ? 'bg-emerald-800 text-white shadow-sm'
+                            : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                        }`}
+                      >
+                        <FileText className="w-3.5 h-3.5" />
+                        <span>Fiche d'Inscription & Reçu (A4)</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('badge')}
+                        className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                          activeTab === 'badge'
+                            ? 'bg-emerald-800 text-white shadow-sm'
+                            : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                        }`}
+                      >
+                        <IdCard className="w-3.5 h-3.5" />
+                        <span>Badge Plastifié</span>
+                      </button>
+                    </div>
+
+                    {onOpenParticipantSpace && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onClose();
+                          onOpenParticipantSpace(foundParticipant);
+                        }}
+                        className="px-3.5 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-sm flex items-center gap-1.5"
+                      >
+                        <Sparkles className="w-3.5 h-3.5" />
+                        <span>Ouvrir l'Espace Séminariste</span>
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Document View */}
+                  <div className="pt-2 flex justify-center w-full">
+                    {activeTab === 'receipt' ? (
+                      <RegistrationReceipt
+                        participant={foundParticipant}
+                        config={config}
+                        onUpdateParticipant={(updated) => setFoundParticipant(updated)}
+                        onOpenParticipantSpace={onOpenParticipantSpace ? () => {
+                          onClose();
+                          onOpenParticipantSpace(foundParticipant);
+                        } : undefined}
+                        showActions={true}
+                      />
+                    ) : (
+                      <BadgeCard participant={foundParticipant} config={config} showActions={true} />
+                    )}
                   </div>
                 </div>
               ) : (

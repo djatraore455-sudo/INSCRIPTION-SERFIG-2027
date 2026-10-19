@@ -90,17 +90,17 @@ export const SeminarOverview: React.FC<SeminarOverviewProps> = ({
           </div>
         </div>
 
-        {/* Minimalist Participation & Tarifs Section */}
-        <div id="tarifs" className="pt-6 border-t border-slate-100">
-          <div className="text-center max-w-2xl mx-auto mb-10">
-            <span className="px-3.5 py-1.5 rounded-full bg-orange-100 text-orange-900 text-xs font-black uppercase tracking-wider">
-              Participation Forfaitaire Unique
+        {/* Section Types d'Inscription & Tarifs */}
+        <div id="types-inscription" className="pt-8 border-t border-slate-100 scroll-mt-16">
+          <div className="text-center max-w-3xl mx-auto mb-10">
+            <span className="px-3.5 py-1.5 rounded-full bg-emerald-100 text-emerald-900 text-xs font-black uppercase tracking-wider">
+              Formules & Profils de Participation
             </span>
-            <h3 className="text-2xl sm:text-3xl font-black text-slate-900 mt-2">
-              Tarif Séminariste : 2 000 FCFA
+            <h3 className="text-2xl sm:text-4xl font-black text-slate-900 mt-2">
+              Choisissez votre type d'inscription
             </h3>
-            <p className="text-xs sm:text-sm text-slate-500 mt-1">
-              Un tarif unique et accessible pour tous les séminaristes de la Région du Gôh.
+            <p className="text-xs sm:text-sm text-slate-600 mt-1 max-w-xl mx-auto">
+              Inscrivez-vous directement selon votre rôle : Séminariste (élève/étudiant), Formateur / Aîné ou Membre de la Commission d'Organisation.
             </p>
           </div>
 
@@ -147,23 +147,27 @@ export const SeminarOverview: React.FC<SeminarOverviewProps> = ({
               </button>
             </div>
 
-            {/* Card 2: Formateur (Gratuit) */}
+            {/* Card 2: Formateur / Aîné (Gratuit) */}
             <div className="p-6 sm:p-8 rounded-3xl bg-white border border-slate-200 shadow-sm hover:border-slate-300 flex flex-col">
               <span className="px-3 py-1 rounded-full bg-blue-100 text-blue-800 text-[10px] font-black uppercase tracking-wider w-fit mb-3">
-                Formateur / Oustaz
+                Formateur ou Aîné
               </span>
               <div className="flex items-baseline gap-1 my-2">
                 <span className="text-4xl font-black text-slate-900">0</span>
                 <span className="text-sm font-bold text-blue-600">FCFA</span>
               </div>
               <p className="text-xs text-slate-500 mb-6">
-                Prise en charge totale par l'AEEMCI Région du Gôh.
+                Prise en charge intégrale par l'AEEMCI Région du Gôh.
               </p>
 
               <ul className="space-y-2.5 text-xs text-slate-700 flex-1 mb-6">
                 <li className="flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4 text-blue-600 shrink-0" />
-                  <span>Dispense de cours ou ateliers thématiques</span>
+                  <span>Au choix : Formateur (cours) ou Aîné (conseil/encadrement)</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-blue-600 shrink-0" />
+                  <span>Dispense de cours, conférences ou ateliers</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4 text-blue-600 shrink-0" />
@@ -171,7 +175,7 @@ export const SeminarOverview: React.FC<SeminarOverviewProps> = ({
                 </li>
                 <li className="flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4 text-blue-600 shrink-0" />
-                  <span>Attestation d'honneur officielle</span>
+                  <span>Attestation d'honneur officielle SERFIG 2027</span>
                 </li>
               </ul>
 
@@ -179,7 +183,7 @@ export const SeminarOverview: React.FC<SeminarOverviewProps> = ({
                 onClick={() => onOpenRegisterWithType('formateur')}
                 className="w-full py-3.5 bg-slate-900 hover:bg-slate-800 text-white font-black rounded-2xl text-xs sm:text-sm shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer mt-auto"
               >
-                <span>Postuler comme Formateur</span>
+                <span>S'inscrire (Formateur / Aîné)</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
             </div>
@@ -194,21 +198,25 @@ export const SeminarOverview: React.FC<SeminarOverviewProps> = ({
                 <span className="text-sm font-bold text-emerald-700">FCFA</span>
               </div>
               <p className="text-xs text-slate-500 mb-6">
-                Badge membre commission & organisation logistique.
+                Paiement direct Wave • Options Polo 2500 F ou T-shirt 2000 F.
               </p>
 
               <ul className="space-y-2.5 text-xs text-slate-700 flex-1 mb-6">
                 <li className="flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>Sécurité, Restauration, Santé, Accueil...</span>
+                  <span>Choix commission : Sécurité, Restauration, Santé, Logistique...</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>Badge officiel Membre de Commission</span>
+                  <span>Paiement débit direct Wave sur votre compte</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>Hébergement & restauration inclus</span>
+                  <span>Polo officiel (2 500 F) ou T-shirt simple (2 000 F)</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>Badge officiel Membre de Commission & Reçu A4</span>
                 </li>
               </ul>
 

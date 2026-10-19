@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { SeminarConfig } from '../types';
 import { AeemciLogo } from './AeemciLogo';
-import { LayoutDashboard, Menu, X, UserCheck, Calendar, Sparkles, HeartHandshake } from 'lucide-react';
+import { LayoutDashboard, Menu, X, UserCheck, Calendar, Sparkles, HeartHandshake, FileText } from 'lucide-react';
 
 interface NavbarProps {
   config: SeminarConfig;
@@ -9,6 +9,7 @@ interface NavbarProps {
   onOpenVerify: () => void;
   onOpenAdmin: () => void;
   onOpenSponsor: () => void;
+  onOpenParticipantSpace?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -16,7 +17,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenRegister,
   onOpenVerify,
   onOpenAdmin,
-  onOpenSponsor
+  onOpenSponsor,
+  onOpenParticipantSpace
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -38,15 +40,25 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
         </a>
 
-        {/* Right: Dashboard Orange Button + Hamburger Menu as on reference screenshot */}
-        <div className="flex items-center gap-3 sm:gap-4">
+        {/* Right: Actions */}
+        <div className="flex items-center gap-2 sm:gap-3">
+          {/* Direct link to Reçu & Espace Séminariste (desktop) */}
+          <button
+            onClick={onOpenParticipantSpace || onOpenVerify}
+            className="hidden lg:inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-emerald-900 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-xl transition-colors cursor-pointer"
+            title="Consulter ma fiche d'inscription, émargement des cours et restaurant"
+          >
+            <FileText className="w-4 h-4 text-emerald-700" />
+            <span>Mon Reçu & Présence</span>
+          </button>
+
           {/* Quick link to Badge search (desktop) */}
           <button
             onClick={onOpenVerify}
-            className="hidden md:inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-slate-700 hover:text-emerald-800 transition-colors cursor-pointer"
+            className="hidden sm:inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-slate-700 hover:text-emerald-800 transition-colors cursor-pointer"
           >
             <UserCheck className="w-4 h-4 text-emerald-700" />
-            <span>Mon Badge</span>
+            <span>Vérifier Badge</span>
           </button>
 
           {/* Prominent Orange Dashboard Button */}
@@ -113,7 +125,18 @@ export const Navbar: React.FC<NavbarProps> = ({
               className="p-3 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-xl text-left font-bold text-xs text-amber-900 transition-all cursor-pointer flex items-center gap-2"
             >
               <HeartHandshake className="w-4 h-4 text-amber-700" />
-              <span>Parrainer un séminariste démuni</span>
+              <span>Parrainer un séminariste</span>
+            </button>
+
+            <button
+              onClick={() => {
+                setMobileMenuOpen(false);
+                onOpenAdmin();
+              }}
+              className="p-3 bg-slate-900 hover:bg-slate-800 border border-slate-900 rounded-xl text-left font-bold text-xs text-white transition-all cursor-pointer flex items-center gap-2 col-span-full sm:col-span-1"
+            >
+              <LayoutDashboard className="w-4 h-4 text-white" />
+              <span>Espace Administrateur (Dashboard)</span>
             </button>
           </div>
 
