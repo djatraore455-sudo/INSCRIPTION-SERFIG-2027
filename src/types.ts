@@ -8,6 +8,7 @@ export interface SubCommitteeConfig {
   id: string;
   name: string;
   fee: number;
+  isPopular?: boolean;
   contactPerson?: string;
   contactPhone?: string;
 }
@@ -47,7 +48,9 @@ export interface SeminarConfig {
   contacts: {
     primaryPhone: string;
     secondaryPhone: string;
+    phone3?: string;
     whatsapp: string;
+    emergencyPhone?: string;
     email: string;
     address: string;
   };
@@ -77,7 +80,10 @@ export interface Participant {
   schoolLevel?: string; // 'Collège' | 'Lycée' | 'Université' | 'Autre'
   schoolName?: string;
   birthDate?: string; // Format ISO: AAAA-MM-JJ
+  parentName?: string;
   parentContact?: string;
+  hasMedicalCondition?: boolean;
+  medicalDetails?: string;
   dormitory?: string;
   transportMode?: string;
   photoUrl?: string;

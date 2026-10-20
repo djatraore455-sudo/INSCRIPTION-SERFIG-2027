@@ -164,6 +164,10 @@ export default function App() {
         config={config}
         initialType={registerInitialType}
         onOpenParticipantSpace={(p) => handleOpenParticipantSpace(p)}
+        onOpenAdmin={() => {
+          setIsRegisterOpen(false);
+          setIsAdminOpen(true);
+        }}
       />
 
       <VerifyRegistrationModal

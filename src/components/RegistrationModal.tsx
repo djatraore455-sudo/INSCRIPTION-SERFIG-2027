@@ -10,19 +10,20 @@ import {
   CreditCard, 
   Sparkles, 
   AlertCircle, 
-  Shirt, 
+  User, 
+  Users, 
+  GraduationCap, 
+  Star, 
+  UploadCloud, 
   Camera, 
   FileText, 
   IdCard, 
-  User, 
-  Smartphone, 
-  CheckCircle2, 
-  ArrowRight, 
-  ArrowLeft,
-  Users, 
-  Award,
-  Phone,
-  Printer
+  LayoutGrid, 
+  Loader2, 
+  ArrowLeft, 
+  ArrowRight,
+  Shirt,
+  HeartPulse
 } from 'lucide-react';
 
 interface RegistrationModalProps {
@@ -32,7 +33,24 @@ interface RegistrationModalProps {
   initialType?: ParticipantType;
   onRegistered?: (participant: Participant) => void;
   onOpenParticipantSpace?: (participant: Participant) => void;
+  onOpenAdmin?: () => void;
 }
+
+// Formatage des montants : "2 000 FCFA" (espace de milliers)
+const formatFCFA = (amount: number): string => {
+  return `${amount.toLocaleString('fr-FR').replace(/\u202F/g, ' ')} FCFA`;
+};
+
+// Commissions officielles SERFIG 2027
+const COMMISSIONS_LIST = [
+  'Pédagogie & Encadrement',
+  'Sécurité & Discipline',
+  'Restauration',
+  'Santé & Premiers Secours',
+  'Logistique & Dortoirs',
+  'Communication & Média',
+  'Finances & Accueil'
+];
 
 export const RegistrationModal: React.FC<RegistrationModalProps> = ({
   isOpen,
@@ -40,1940 +58,1561 @@ export const RegistrationModal: React.FC<RegistrationModalProps> = ({
   config,
   initialType = 'seminariste',
   onRegistered,
-  onOpenParticipantSpace
+  onOpenParticipantSpace,
+  onOpenAdmin
 }) => {
   const [activeTab, setActiveTab] = useState<ParticipantType>(initialType);
+  const [wizardStep, setWizardStep] = useState<number>(1); // 1 à 4 pour séminariste
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [createdParticipant, setCreatedParticipant] = useState<Participant | null>(null);
-  const [successViewTab, setSuccessViewTab] = useState<'receipt' | 'badge'>('receipt');
-  
-  // Step indicator for progressive wizard (parcours d'inscription)
-  const [wizardStep, setWizardStep] = useState<number>(1);
+  const [successViewTab, setSuccessViewTab] = useState<'summary' | 'receipt' | 'badge'>('summary');
+  const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
-  // Synchronize activeTab and step when opened with an initialType
+  // -------------------------------------------------------------
+  // ÉTATS DE FORMULAIRE PARTAGÉS & SÉMINARISTE
+  // -------------------------------------------------------------
+  // Étape 1 : Informations personnelles
+  const [nom, setNom] = useState('');
+  const [prenom, setPrenom] = useState('');
+  const [genre, setGenre] = useState<'homme' | 'femme'>('homme');
+  const [birthDate, setBirthDate] = useState('');
+  const [phone, setPhone] = useState('');
+  const [schoolLevel, setSchoolLevel] = useState('Lycée (2nde à Terminale)');
+
+  // Étape 2 : Informations organisationnelles
+  const [subCommittee, setSubCommittee] = useState(config.subCommittees[0]?.name || 'Sous-Comité Gagnoa');
+  const [wantsPolo, setWantsPolo] = useState(false);
+  const [poloSize, setPoloSize] = useState<'S' | 'M' | 'L' | 'XL' | '2XL' | '3XL'>('L');
+  const [poloColor, setPoloColor] = useState('Vert Forêt AEEMCI');
+  const [parentName, setParentName] = useState('');
+  const [parentContact, setParentContact] = useState('');
+  const [hasMedicalCondition, setHasMedicalCondition] = useState<boolean | null>(false);
+  const [medicalDetails, setMedicalDetails] = useState('');
+
+  // Étape 3 : Photo de profil
+  const [photoUrl, setPhotoUrl] = useState<string>('');
+
+  // Étape 4 : Paiement Wave
+  const [wavePhoneNumber, setWavePhoneNumber] = useState('');
+
+  // -------------------------------------------------------------
+  // FORMATEUR SPÉCIFIQUE (une seule page)
+  // -------------------------------------------------------------
+  const [trainerSubtype, setTrainerSubtype] = useState('Formateur Résident');
+
+  // -------------------------------------------------------------
+  // COMMISSION SPÉCIFIQUE (une seule page)
+  // -------------------------------------------------------------
+  const [commissionName, setCommissionName] = useState(COMMISSIONS_LIST[0]);
+
+  // Synchronisation lors de l'ouverture
   useEffect(() => {
     if (isOpen) {
       setActiveTab(initialType);
       setWizardStep(1);
       setCreatedParticipant(null);
-      setShowWaveModal(false);
-      setErrorMessage('');
-      setBirthDate('');
-      setParentContact('');
-      setTransportMode('');
+      setErrors({});
+      setSuccessViewTab('summary');
     }
   }, [isOpen, initialType]);
 
-  // Reset wizard step when user switches tabs manually
-  const handleTabChange = (type: ParticipantType) => {
-    setActiveTab(type);
-    setWizardStep(1);
-    setErrorMessage('');
-  };
-
-  // Step 1: Identité & Coordonnées
-  const [fullName, setFullName] = useState('');
-  const [gender, setGender] = useState<'homme' | 'femme'>('homme');
-  const [phone, setPhone] = useState('');
-  const [whatsapp, setWhatsapp] = useState('');
-  const [email, setEmail] = useState('');
-  const [birthDate, setBirthDate] = useState<string>('');
-  const [photoUrl, setPhotoUrl] = useState<string>('');
-
-  // Step 2: Cursus Scolaire & Origine
-  const [subCommittee, setSubCommittee] = useState(config.subCommittees[0]?.name || 'Sous-Comité Gagnoa');
-  const [schoolLevel, setSchoolLevel] = useState('Lycée');
-  const [schoolName, setSchoolName] = useState('');
-  const [parentContact, setParentContact] = useState('');
-  const [transportMode, setTransportMode] = useState('');
-
-  // Âge calculé à partir de birthDate et indicateur de minorité (< 18 ans)
-  const participantAge = calculateAge(birthDate);
-  const isMinor = participantAge !== null && participantAge < 18;
-
-  // Formateur & Aîné specific fields
-  const [trainerSubtype, setTrainerSubtype] = useState<'formateur' | 'aine'>('formateur');
-  const [trainerTitle, setTrainerTitle] = useState('Oustaz / Enseignant');
-  const [teachingSubject, setTeachingSubject] = useState('');
-  const [trainerBio, setTrainerBio] = useState('');
-  const [trainerAvailability, setTrainerAvailability] = useState('Toute la semaine (12 au 18 avril 2027)');
-  const [trainerAccommodation, setTrainerAccommodation] = useState('Dortoir Formateurs / Aînés pris en charge');
-
-  // Commission specific fields
-  const [commission, setCommission] = useState('Sécurité & Discipline');
-  const [commissionRole, setCommissionRole] = useState('Membre actif');
-  const [commissionExperience, setCommissionExperience] = useState('Déjà servi dans un précédent séminaire SERFIG');
-
-  // Step 3: Tenue Officielle (Séminariste & Commission)
-  const [clothingChoice, setClothingChoice] = useState<'aucun' | 'polo' | 'tshirt'>('polo');
-  const [poloSize, setPoloSize] = useState<'S' | 'M' | 'L' | 'XL' | '2XL' | '3XL'>('L');
-  const [poloColor, setPoloColor] = useState('Vert Forêt');
-
-  // Step 4: Règlement & Wave Débit Direct
-  const [paymentMethod, setPaymentMethod] = useState<'Wave' | 'Orange Money' | 'MTN MoMo' | 'Moov Money' | 'Espèces sur place'>('Wave');
-  const [wavePhoneNumber, setWavePhoneNumber] = useState('');
-  const [paymentReference, setPaymentReference] = useState('');
-
-  // Wave Debit simulation modal
-  const [showWaveModal, setShowWaveModal] = useState(false);
-  const [waveProcessingState, setWaveProcessingState] = useState<'idle' | 'waiting' | 'success'>('idle');
-
-  // UI state
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [errorMessage, setErrorMessage] = useState('');
-
-  // Auto-sync Wave phone with telephone if empty
-  const handlePhoneChange = (val: string) => {
-    setPhone(val);
-    if (!wavePhoneNumber || wavePhoneNumber === phone) {
-      setWavePhoneNumber(val);
-    }
-  };
-
   if (!isOpen) return null;
 
-  // Pricing calculations
-  const registrationFee = activeTab === 'seminariste' 
-    ? 2000 
+  // Calcul dynamique de l'âge
+  const age = calculateAge(birthDate);
+  const isMinor = age !== null && age < 18;
+
+  // Tarifs
+  const activeSubCommitteeObj = config.subCommittees.find(sc => sc.name === subCommittee) || config.subCommittees[0];
+  const participantFee = activeTab === 'formateur' 
+    ? 0 
     : activeTab === 'commission' 
-      ? 2000 
-      : 0;
+      ? (config.commissionFee || 2000) 
+      : (activeSubCommitteeObj?.fee || 2000);
+  
+  const poloFee = wantsPolo ? (config.poloPrice || 2500) : 0;
+  const totalToPay = participantFee + poloFee;
 
-  const clothingFee = (activeTab === 'seminariste' || activeTab === 'commission')
-    ? (clothingChoice === 'polo' ? (config.poloPrice || 2500) : clothingChoice === 'tshirt' ? (config.tshirtPrice || 2000) : 0)
-    : 0;
-
-  const totalAmount = registrationFee + clothingFee;
-
-  // Total steps depending on participant type
-  const getTotalSteps = () => {
-    if (activeTab === 'formateur') return 3;
-    return 4; // Séminariste and Commission have 4 steps
-  };
-
-  // Step validation
-  const validateStep = (currentStep: number): boolean => {
-    setErrorMessage('');
-    
-    if (activeTab === 'seminariste') {
-      if (currentStep === 1) {
-        if (!fullName.trim()) {
-          setErrorMessage('Veuillez saisir votre nom et prénoms complets.');
-          return false;
-        }
-        if (!birthDate) {
-          setErrorMessage('Veuillez sélectionner votre date de naissance.');
-          return false;
-        }
-        if (!phone.trim()) {
-          setErrorMessage('Veuillez renseigner votre numéro de téléphone d\'appel.');
-          return false;
-        }
-        return true;
+  // Gestion du téléversement de la photo
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 4 * 1024 * 1024) {
+        setErrors(prev => ({ ...prev, photo: 'La photo ne doit pas dépasser 4 Mo.' }));
+        return;
       }
-      if (currentStep === 2) {
-        if (isMinor && !parentContact.trim()) {
-          setErrorMessage('Le contact d\'un parent ou tuteur est obligatoire pour les participants mineurs (moins de 18 ans).');
-          return false;
-        }
-        return true;
-      }
-      return true;
-    }
-
-    if (activeTab === 'commission') {
-      if (currentStep === 1) {
-        if (!commission.trim()) {
-          setErrorMessage('Veuillez choisir une commission d\'affectation.');
-          return false;
-        }
-        return true;
-      }
-      if (currentStep === 2) {
-        if (!fullName.trim()) {
-          setErrorMessage('Veuillez saisir votre nom et prénoms complets.');
-          return false;
-        }
-        if (!phone.trim()) {
-          setErrorMessage('Veuillez renseigner votre numéro de téléphone.');
-          return false;
-        }
-        return true;
-      }
-      return true;
-    }
-
-    if (activeTab === 'formateur') {
-      if (currentStep === 1) {
-        if (!teachingSubject.trim()) {
-          setErrorMessage(
-            trainerSubtype === 'aine' 
-              ? 'Veuillez préciser votre domaine de conseil ou thème d\'intervention.' 
-              : 'Veuillez préciser la matière ou thème du cours à dispenser.'
-          );
-          return false;
-        }
-        return true;
-      }
-      if (currentStep === 2) {
-        if (!fullName.trim()) {
-          setErrorMessage('Veuillez saisir votre nom et prénoms complets.');
-          return false;
-        }
-        if (!phone.trim()) {
-          setErrorMessage('Veuillez renseigner votre numéro de téléphone.');
-          return false;
-        }
-        return true;
-      }
-      return true;
-    }
-
-    return true;
-  };
-
-  const handleNextStep = () => {
-    if (validateStep(wizardStep)) {
-      setWizardStep(prev => Math.min(prev + 1, getTotalSteps()));
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPhotoUrl(reader.result as string);
+        setErrors(prev => {
+          const next = { ...prev };
+          delete next.photo;
+          return next;
+        });
+      };
+      reader.readAsDataURL(file);
     }
   };
 
-  const handlePrevStep = () => {
-    setErrorMessage('');
-    setWizardStep(prev => Math.max(prev - 1, 1));
+  // -------------------------------------------------------------
+  // VALIDATIONS DES ÉTAPES DU SÉMINARISTE
+  // -------------------------------------------------------------
+  const validateSeminaristeStep = (step: number): boolean => {
+    const newErrors: { [key: string]: string } = {};
+
+    if (step === 1) {
+      if (!nom.trim()) newErrors.nom = 'Le nom de famille est obligatoire.';
+      if (!prenom.trim()) newErrors.prenom = 'Le prénom est obligatoire.';
+      if (!genre) newErrors.genre = 'Veuillez préciser le genre.';
+      if (!birthDate) {
+        newErrors.birthDate = 'La date de naissance est obligatoire.';
+      } else {
+        const d = new Date(birthDate);
+        const y = d.getFullYear();
+        if (isNaN(d.getTime()) || y < 1930 || d > new Date()) {
+          newErrors.birthDate = 'Date de naissance invalide (entre 1930 et aujourd’hui).';
+        }
+      }
+      if (!phone.trim()) {
+        newErrors.phone = 'Le numéro de téléphone est obligatoire.';
+      } else if (phone.replace(/\D/g, '').length < 8) {
+        newErrors.phone = 'Veuillez saisir un numéro valide (ex: 07 XX XX XX XX).';
+      }
+      if (!schoolLevel) newErrors.schoolLevel = 'Veuillez sélectionner votre niveau d’étude.';
+    }
+
+    if (step === 2) {
+      if (!subCommittee) newErrors.subCommittee = 'Veuillez sélectionner votre sous-comité.';
+      
+      // Si moins de 18 ans, parent obligatoire
+      if (isMinor) {
+        if (!parentName.trim()) {
+          newErrors.parentName = 'Le nom du parent/tuteur est obligatoire pour les mineurs.';
+        }
+        if (!parentContact.trim()) {
+          newErrors.parentContact = 'Le contact du parent/tuteur est obligatoire pour les mineurs.';
+        }
+      }
+
+      if (hasMedicalCondition === null) {
+        newErrors.hasMedicalCondition = 'Veuillez indiquer si vous avez une maladie.';
+      } else if (hasMedicalCondition && !medicalDetails.trim()) {
+        newErrors.medicalDetails = 'Veuillez préciser la maladie, allergie ou traitement en cours.';
+      }
+    }
+
+    if (step === 4) {
+      if (!wavePhoneNumber.trim()) {
+        newErrors.wavePhoneNumber = 'Le numéro de compte Wave est obligatoire.';
+      } else if (wavePhoneNumber.replace(/\D/g, '').length < 8) {
+        newErrors.wavePhoneNumber = 'Veuillez saisir un numéro Wave valide (ex: 07 XX XX XX XX).';
+      }
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
-  const executeRegistration = (paidViaWave: boolean = false, waveRef?: string) => {
+  // Validation Formateur
+  const validateFormateur = (): boolean => {
+    const newErrors: { [key: string]: string } = {};
+    if (!nom.trim()) newErrors.nom = 'Le nom est obligatoire.';
+    if (!prenom.trim()) newErrors.prenom = 'Le prénom est obligatoire.';
+    if (!phone.trim()) newErrors.phone = 'Le contact est obligatoire.';
+    if (!photoUrl) newErrors.photo = 'La photo est obligatoire pour les formateurs.';
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  // Validation Commission
+  const validateCommission = (): boolean => {
+    const newErrors: { [key: string]: string } = {};
+    if (!nom.trim()) newErrors.nom = 'Le nom est obligatoire.';
+    if (!prenom.trim()) newErrors.prenom = 'Le prénom est obligatoire.';
+    if (!phone.trim()) newErrors.phone = 'Le contact est obligatoire.';
+    if (!photoUrl) newErrors.photo = 'La photo est obligatoire pour les membres de commission.';
+    if (!wavePhoneNumber.trim()) {
+      newErrors.wavePhoneNumber = 'Le numéro Wave est obligatoire.';
+    }
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  // -------------------------------------------------------------
+  // ENVOI DE L'INSCRIPTION (JAMAIS PAYÉE PAR DÉFAUT)
+  // -------------------------------------------------------------
+  const submitRegistration = async () => {
+    setIsSubmitting(true);
     try {
-      const actualPaymentMethod = activeTab === 'formateur' 
-        ? undefined 
-        : paidViaWave ? 'Wave' : paymentMethod;
+      const isFormateur = activeTab === 'formateur';
+      const actualPaymentStatus = isFormateur ? 'gratuit' : 'en_attente';
+      const fullParticipantName = `${nom.trim().toUpperCase()} ${prenom.trim()}`;
 
-      const actualPaymentStatus = activeTab === 'formateur'
-        ? 'gratuit'
-        : paidViaWave ? 'paye' : (paymentReference ? 'paye' : 'en_attente');
-
-      const actualPaymentRef = paidViaWave
-        ? (waveRef || `WAVE-CI-${Math.floor(10000000 + Math.random() * 90000000)}`)
-        : (paymentReference.trim() || undefined);
-
-      const newPart = addParticipant({
+      const created = addParticipant({
         type: activeTab,
-        fullName: fullName.trim(),
-        gender,
+        fullName: fullParticipantName,
+        gender: genre,
         phone: phone.trim(),
-        whatsapp: whatsapp.trim() || phone.trim(),
-        email: email.trim() || undefined,
+        whatsapp: phone.trim(),
         subCommittee,
-        birthDate: birthDate ? birthDate.trim() : undefined,
+        birthDate: birthDate || undefined,
+        parentName: parentName.trim() || undefined,
         parentContact: parentContact.trim() || undefined,
-        transportMode: transportMode.trim() || undefined,
+        hasMedicalCondition: Boolean(hasMedicalCondition),
+        medicalDetails: hasMedicalCondition ? medicalDetails.trim() : undefined,
+        schoolLevel: activeTab === 'seminariste' ? schoolLevel : undefined,
         photoUrl: photoUrl || undefined,
 
-        // Séminariste
-        schoolLevel: activeTab === 'seminariste' ? schoolLevel : undefined,
-        schoolName: activeTab === 'seminariste' ? schoolName.trim() : undefined,
+        // Polo
+        hasPolo: wantsPolo,
+        clothingType: wantsPolo ? 'polo' : 'aucun',
+        poloSize: wantsPolo ? poloSize : undefined,
+        poloColor: wantsPolo ? poloColor : undefined,
+        clothingFee: poloFee,
 
-        // Formateur & Aîné
-        trainerSubtype: activeTab === 'formateur' ? trainerSubtype : undefined,
-        trainerTitle: activeTab === 'formateur' ? trainerTitle : undefined,
-        teachingSubject: activeTab === 'formateur' ? teachingSubject.trim() : undefined,
-        trainerBio: activeTab === 'formateur' ? trainerBio.trim() : undefined,
-        availability: activeTab === 'formateur' ? trainerAvailability : undefined,
+        // Formateur & Commission
+        trainerSubtype: isFormateur ? (trainerSubtype as any) : undefined,
+        commission: activeTab === 'commission' ? commissionName : undefined,
+        wavePhoneNumber: wavePhoneNumber.trim() || undefined,
 
-        // Commission
-        commission: activeTab === 'commission' ? commission : undefined,
-        commissionRole: activeTab === 'commission' ? commissionRole : undefined,
-        commissionExperience: activeTab === 'commission' ? commissionExperience : undefined,
-        wavePhoneNumber: (activeTab === 'commission' || paymentMethod === 'Wave') ? (wavePhoneNumber.trim() || phone.trim()) : undefined,
-
-        // Tenue Officielle (Polo ou Tee-shirt)
-        clothingType: (activeTab === 'seminariste' || activeTab === 'commission') ? clothingChoice : undefined,
-        hasPolo: (activeTab === 'seminariste' || activeTab === 'commission') && clothingChoice !== 'aucun',
-        poloSize: (activeTab === 'seminariste' || activeTab === 'commission') && clothingChoice !== 'aucun' ? poloSize : undefined,
-        poloColor: (activeTab === 'seminariste' || activeTab === 'commission') && clothingChoice !== 'aucun' ? poloColor : undefined,
-
-        // Finances
-        registrationFee,
-        poloFee: clothingFee,
-        clothingFee,
-        totalFee: totalAmount,
+        // Finances (Statut en attente ou gratuit)
+        registrationFee: participantFee,
+        poloFee,
+        totalFee: totalToPay,
         paymentStatus: actualPaymentStatus,
-        paymentMethod: actualPaymentMethod,
-        paymentReference: actualPaymentRef
+        paymentMethod: isFormateur ? undefined : 'Wave'
       }, config);
 
       confetti({
-        particleCount: 100,
-        spread: 80,
+        particleCount: 110,
+        spread: 70,
         origin: { y: 0.6 }
       });
 
-      setCreatedParticipant(newPart);
-      if (onRegistered) onRegistered(newPart);
+      setCreatedParticipant(created);
+      if (onRegistered) onRegistered(created);
     } catch (err: any) {
-      setErrorMessage(err.message || 'Une erreur est survenue lors de l\'enregistrement.');
+      console.error('Erreur inscription :', err);
+      setErrors({ global: err?.message || 'Erreur lors de l’enregistrement de votre inscription.' });
     } finally {
       setIsSubmitting(false);
-      setShowWaveModal(false);
     }
-  };
-
-  const handleFinalSubmit = (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    setErrorMessage('');
-
-    if (!validateStep(wizardStep)) {
-      return;
-    }
-
-    // Direct Wave debit trigger for Séminariste and Commission
-    if (activeTab !== 'formateur' && paymentMethod === 'Wave') {
-      const targetWaveNum = wavePhoneNumber.trim() || phone.trim();
-      if (!targetWaveNum) {
-        setErrorMessage('Veuillez renseigner votre numéro de compte Wave pour le débit direct.');
-        return;
-      }
-      setWavePhoneNumber(targetWaveNum);
-      setShowWaveModal(true);
-      setWaveProcessingState('waiting');
-      return;
-    }
-
-    // Direct submission for Formateur / Aîné or alternative payment
-    setIsSubmitting(true);
-    executeRegistration(false);
-  };
-
-  const handleConfirmWaveDebit = () => {
-    setWaveProcessingState('success');
-    setTimeout(() => {
-      const generatedWaveRef = `WAVE-CI-${Math.floor(10000000 + Math.random() * 90000000)}`;
-      executeRegistration(true, generatedWaveRef);
-    }, 1200);
-  };
-
-  const handleResetForNew = () => {
-    setCreatedParticipant(null);
-    setWizardStep(1);
-    setFullName('');
-    setPhone('');
-    setPaymentReference('');
-    setWavePhoneNumber('');
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 bg-slate-900/85 backdrop-blur-md overflow-y-auto">
-      <div className="relative w-full max-w-3xl bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-200">
-        
-        {/* ========================================================================= */}
-        {/* MODAL HEADER : ORANGE & BLANC (STYLE PAGE D'ACCUEIL)                      */}
-        {/* Uniquement Logo AEEMCI + Nom du Séminaire, SANS barre encombrante         */}
-        {/* ========================================================================= */}
-        <div className="bg-gradient-to-r from-orange-500 via-orange-600 to-amber-700 p-4 sm:p-6 text-white relative shadow-md">
-          {/* Bouton Fermer */}
-          <button
-            onClick={onClose}
-            className="absolute top-4 right-4 text-white/90 hover:text-white p-1.5 rounded-full bg-white/20 hover:bg-white/30 transition-all cursor-pointer backdrop-blur-xs"
-            aria-label="Fermer"
-          >
-            <X className="w-5 h-5" />
-          </button>
-          
-          <div className="flex items-center gap-3.5 pr-10">
-            {/* Logo officiel de l'AEEMCI */}
-            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-white p-1.5 shadow-md flex items-center justify-center shrink-0 border-2 border-white/40">
-              <img
-                src={config.logoUrl || '/src/assets/images/aeemci_official_logo_1792254182659.jpg'}
-                alt="Logo Officiel AEEMCI"
-                className="w-full h-full object-contain"
-              />
-            </div>
-
-            {/* Infos Séminaire */}
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="px-2.5 py-0.5 rounded-full bg-white text-orange-600 text-[11px] font-black uppercase tracking-wider shadow-xs">
-                  {config.editionName}
-                </span>
-                <span className="text-white/90 text-xs font-bold">
-                  Région du Gôh • {config.location.city}
-                </span>
-              </div>
-
-              <h2 className="text-lg sm:text-2xl font-black text-white leading-tight mt-1 truncate">
-                {activeTab === 'commission' && "Inscription Membre de Commission"}
-                {activeTab === 'seminariste' && "Inscription Séminariste"}
-                {activeTab === 'formateur' && "Inscription Formateur / Aîné"}
-              </h2>
-
-              <p className="text-xs sm:text-sm text-white/90 font-medium line-clamp-1 mt-0.5">
-                {config.fullTitle} • {config.displayDates}
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-gradient-to-b from-[#D9661A] to-[#FF9142] min-h-screen">
+      {/* ------------------------------------------------------------- */}
+      {/* EN-TÊTE COLLANT EN HAUT (#FFF5F0)                             */}
+      {/* ------------------------------------------------------------- */}
+      <header className="sticky top-0 z-40 bg-[#FFF5F0] border-b border-orange-200/70 shadow-sm px-4 sm:px-8 py-3">
+        <div className="max-w-5xl mx-auto flex items-center justify-between gap-3">
+          {/* Logo AEEMCI + Titres */}
+          <div className="flex items-center gap-3">
+            <img
+              src={config.logoUrl || '/assets/aistudio/1771719145696_b78691d8.png'}
+              alt="Logo AEEMCI"
+              className="w-[52px] h-[52px] rounded-full object-contain border-2 border-orange-200 bg-white p-1 shadow-xs shrink-0"
+            />
+            <div>
+              <h1 className="text-[18px] font-bold text-[#1F2937] leading-tight">
+                {config.editionName || 'SERFIG 2027'}
+              </h1>
+              <p className="text-[11px] text-gray-500 leading-tight">
+                {config.fullTitle || 'Séminaire Régional de Formation Islamique du Gôh'}
               </p>
             </div>
           </div>
 
-          {/* Stepper Progress Bar (Orange & Blanc) */}
-          {!createdParticipant && (
-            <div className="mt-4 pt-3 border-t border-white/25">
-              <div className="flex items-center justify-between text-[11px] font-bold text-white mb-1.5 px-0.5">
-                <span className="bg-white/20 px-2 py-0.5 rounded-md">Étape {wizardStep} sur {getTotalSteps()}</span>
-                <span className="text-white font-black">
-                  {activeTab === 'commission' && (
-                    wizardStep === 1 ? '1. Affectation Commission' :
-                    wizardStep === 2 ? '2. Identité & Contact' :
-                    wizardStep === 3 ? '3. Choix de la Tenue' : '4. Débit Wave direct'
-                  )}
-                  {activeTab === 'seminariste' && (
-                    wizardStep === 1 ? '1. Identité & Photo' :
-                    wizardStep === 2 ? '2. Scolarité & Origine' :
-                    wizardStep === 3 ? '3. Choix de la Tenue' : '4. Récapitulatif & Débit Wave'
-                  )}
-                  {activeTab === 'formateur' && (
-                    wizardStep === 1 ? '1. Rôle & Thème' :
-                    wizardStep === 2 ? '2. Coordonnées & Présentation' : '3. Prise en charge & Validation'
-                  )}
-                </span>
-              </div>
-              <div className="w-full bg-black/20 rounded-full h-2 overflow-hidden flex gap-1 p-0.5 border border-white/30">
-                {Array.from({ length: getTotalSteps() }).map((_, idx) => (
-                  <div
-                    key={idx}
-                    className={`h-full rounded-full transition-all duration-300 flex-1 ${
-                      idx + 1 <= wizardStep
-                        ? 'bg-white shadow-xs'
-                        : 'bg-white/25'
-                    }`}
-                  />
-                ))}
+          {/* Mini-barre au centre : "Étape X sur 4" (pendant l'inscription séminariste) */}
+          {activeTab === 'seminariste' && !createdParticipant && (
+            <div className="hidden md:flex flex-col items-center justify-center min-w-[150px]">
+              <span className="text-[11px] font-semibold text-gray-600 mb-1">
+                Étape {wizardStep} sur 4
+              </span>
+              <div className="w-32 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-[#F97316] transition-all duration-300 rounded-full"
+                  style={{ width: `${(wizardStep / 4) * 100}%` }}
+                />
               </div>
             </div>
           )}
-        </div>
 
-        {/* Modal Body */}
-        <div className="p-4 sm:p-6 max-h-[78vh] overflow-y-auto">
-          {createdParticipant ? (
-            /* ========================================================================= */
-            /* SUCCESS VIEW : REÇU OFFICIEL A4 + BADGE PLASTIFIÉ                         */
-            /* ========================================================================= */
-            <div className="text-center py-2">
-              <div className="inline-flex items-center justify-center w-12 h-12 bg-orange-100 text-orange-600 rounded-full mb-3 shadow-inner">
-                <Sparkles className="w-6 h-6 text-orange-600" />
+          {/* Bouton Dashboard orange & Bouton Fermer */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                if (onOpenAdmin) {
+                  onOpenAdmin();
+                } else {
+                  onClose();
+                }
+              }}
+              type="button"
+              className="px-3.5 py-1.5 bg-[#F97316] hover:bg-[#EA580C] text-white text-xs font-semibold rounded-full flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+              title="Ouvrir l'Espace Administrateur"
+            >
+              <LayoutGrid className="w-3.5 h-3.5 text-white" />
+              <span>Dashboard</span>
+            </button>
+
+            <button
+              onClick={onClose}
+              type="button"
+              className="p-1.5 text-gray-500 hover:text-gray-800 hover:bg-orange-100 rounded-full transition-all cursor-pointer"
+              title="Fermer et retourner à l'accueil"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {/* ------------------------------------------------------------- */}
+      {/* CORPS PRINCIPAL DE L'INSCRIPTION                             */}
+      {/* ------------------------------------------------------------- */}
+      <main className="max-w-3xl mx-auto px-4 py-6 sm:py-10">
+
+        {/* VUE DE SUCCÈS APRÈS VALIDATION */}
+        {createdParticipant ? (
+          <div className="bg-white rounded-[12px] shadow-xl border border-gray-100 p-6 sm:p-8 animate-in fade-in zoom-in-95">
+            <div className="text-center max-w-lg mx-auto">
+              <div className="w-16 h-16 bg-emerald-100 text-[#10B981] rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm">
+                <Check className="w-9 h-9 stroke-[3]" />
               </div>
-              
-              <h3 className="text-xl font-black text-slate-900">Al-Hamdoullilah ! Inscription Validée</h3>
-              
-              <p className="text-sm text-slate-600 mt-1 max-w-md mx-auto">
-                L'inscription de <span className="font-extrabold text-orange-600">{createdParticipant.fullName}</span> a été enregistrée avec succès sous le matricule officiel ci-dessous.
+
+              <h2 className="text-[22px] font-bold text-[#1F2937]">
+                Inscription enregistrée avec succès !
+              </h2>
+              <p className="text-gray-600 text-sm mt-1">
+                Bienvenue au SERFIG 2027. Votre demande a été enregistrée avec le statut <strong className="text-amber-600">en attente de validation</strong>.
               </p>
 
-              {/* Status and Matricule Box */}
-              <div className="mt-3 flex items-center justify-center gap-2">
-                <span className="px-3.5 py-1.5 bg-orange-600 text-white font-mono font-black text-sm rounded-xl tracking-wider shadow-sm">
-                  {createdParticipant.matricule}
-                </span>
-                <span className="px-3 py-1.5 bg-orange-100 text-orange-900 font-black text-xs rounded-xl flex items-center gap-1">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-orange-600" />
-                  <span>{createdParticipant.paymentStatus === 'paye' ? 'Paiement Confirmé' : createdParticipant.paymentStatus === 'gratuit' ? 'Prise en charge' : 'Enregistré'}</span>
-                </span>
+              <div className="my-5 p-4 bg-[#F9FAFB] rounded-xl border border-gray-200 text-left space-y-1.5 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-500 text-xs">Matricule officiel :</span>
+                  <span className="font-mono font-bold text-gray-900">{createdParticipant.matricule}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500 text-xs">Nom complet :</span>
+                  <span className="font-bold text-gray-900">{createdParticipant.fullName}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500 text-xs">Sous-comité :</span>
+                  <span className="text-gray-800">{createdParticipant.subCommittee}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500 text-xs">Montant total :</span>
+                  <span className="font-bold text-[#F97316]">{formatFCFA(createdParticipant.totalFee)}</span>
+                </div>
               </div>
 
-              {/* Document Switcher Tab */}
-              <div className="flex justify-center gap-2 mt-5 mb-4">
+              {/* Navigation vue Reçu / Badge */}
+              <div className="flex flex-wrap items-center justify-center gap-3 mt-6">
                 <button
-                  onClick={() => setSuccessViewTab('receipt')}
-                  className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all cursor-pointer ${
-                    successViewTab === 'receipt'
-                      ? 'bg-orange-600 text-white shadow-md'
-                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                  }`}
+                  onClick={() => setSuccessViewTab(successViewTab === 'receipt' ? 'summary' : 'receipt')}
+                  className="px-4 py-2 bg-[#1F2937] hover:bg-black text-white text-xs font-semibold rounded-lg flex items-center gap-2 cursor-pointer shadow-sm"
                 >
                   <FileText className="w-4 h-4" />
-                  <span>Reçu d'Inscription Officiel (Format A4)</span>
+                  <span>{successViewTab === 'receipt' ? 'Masquer le Reçu' : 'Afficher mon Reçu A4'}</span>
                 </button>
+
                 <button
-                  onClick={() => setSuccessViewTab('badge')}
-                  className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all cursor-pointer ${
-                    successViewTab === 'badge'
-                      ? 'bg-orange-600 text-white shadow-md'
-                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                  }`}
+                  onClick={() => setSuccessViewTab(successViewTab === 'badge' ? 'summary' : 'badge')}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-lg flex items-center gap-2 cursor-pointer shadow-sm"
                 >
                   <IdCard className="w-4 h-4" />
-                  <span>Badge Plastifié & QR Code</span>
-                </button>
-              </div>
-
-              {/* Render Current Document */}
-              <div className="mt-2 flex justify-center">
-                {successViewTab === 'receipt' ? (
-                  <RegistrationReceipt participant={createdParticipant} config={config} />
-                ) : (
-                  <div className="max-w-md w-full">
-                    <BadgeCard participant={createdParticipant} config={config} />
-                  </div>
-                )}
-              </div>
-
-              {/* Actions Footer */}
-              <div className="mt-6 pt-4 border-t border-slate-200 flex flex-wrap items-center justify-center gap-3">
-                <button
-                  onClick={() => window.print()}
-                  className="px-4 py-2.5 bg-slate-800 text-white text-xs font-bold rounded-xl hover:bg-slate-900 flex items-center gap-2 cursor-pointer shadow-sm"
-                >
-                  <Printer className="w-4 h-4" />
-                  <span>Imprimer le Reçu / Badge</span>
+                  <span>{successViewTab === 'badge' ? 'Masquer le Badge' : 'Afficher mon Badge'}</span>
                 </button>
 
                 {onOpenParticipantSpace && (
                   <button
                     onClick={() => {
-                      onOpenParticipantSpace(createdParticipant);
                       onClose();
+                      onOpenParticipantSpace(createdParticipant);
                     }}
-                    className="px-4 py-2.5 bg-orange-600 text-white text-xs font-black rounded-xl hover:bg-orange-700 flex items-center gap-2 cursor-pointer shadow-sm"
+                    className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold rounded-lg flex items-center gap-2 cursor-pointer shadow-sm"
                   >
-                    <span>Ouvrir mon Espace</span>
-                    <ArrowRight className="w-4 h-4" />
+                    <Sparkles className="w-4 h-4" />
+                    <span>Mon Espace Séminariste</span>
                   </button>
                 )}
 
                 <button
-                  onClick={handleResetForNew}
-                  className="px-4 py-2.5 bg-slate-100 text-slate-700 text-xs font-bold rounded-xl hover:bg-slate-200 cursor-pointer"
-                >
-                  Inscrire une autre personne
-                </button>
-
-                <button
                   onClick={onClose}
-                  className="px-4 py-2.5 bg-slate-200 text-slate-800 text-xs font-bold rounded-xl hover:bg-slate-300 cursor-pointer"
+                  className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold rounded-lg cursor-pointer"
                 >
-                  Fermer
+                  Retour à l'accueil
                 </button>
               </div>
-            </div>
-          ) : (
-            /* ========================================================================= */
-            /* ACTIVE FORM BY ROLE & WIZARD STEPS (COULEURS ORANGE ET BLANC)             */
-            /* ========================================================================= */
-            <form onSubmit={(e) => { e.preventDefault(); handleFinalSubmit(); }} className="space-y-4">
-              
-              {/* Error Banner */}
-              {errorMessage && (
-                <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl flex items-center gap-2 animate-in fade-in">
-                  <AlertCircle className="w-4 h-4 shrink-0 text-red-500" />
-                  <span>{errorMessage}</span>
+
+              {/* Reçu intégré */}
+              {successViewTab === 'receipt' && (
+                <div className="mt-8 border-t border-gray-200 pt-6">
+                  <RegistrationReceipt participant={createdParticipant} config={config} />
                 </div>
               )}
 
-              {/* ===================================================================== */}
-              {/* SÉMINARISTE PARCOURS (4 ÉTAPES GUIDÉES)                                */}
-              {/* ===================================================================== */}
-              {activeTab === 'seminariste' && (
-                <>
-                  {/* ÉTAPE 1 : IDENTITÉ & PHOTO */}
-                  {wizardStep === 1 && (
-                    <div className="space-y-4 animate-in fade-in duration-200">
-                      <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                        <div>
-                          <h3 className="text-sm font-black text-slate-900 uppercase tracking-wide">
-                            Étape 1 : Identité & Photo du Séminariste
-                          </h3>
-                          <p className="text-xs text-slate-500">
-                            Renseignez vos coordonnées exactes pour votre reçu officiel SERFIG 2027.
-                          </p>
+              {/* Badge intégré */}
+              {successViewTab === 'badge' && (
+                <div className="mt-8 border-t border-gray-200 pt-6 flex justify-center">
+                  <BadgeCard participant={createdParticipant} config={config} />
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* SÉLECTEUR DU PROFIL D'INSCRIPTION */}
+            <div className="flex items-center justify-center gap-2 sm:gap-3 mb-6">
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('seminariste');
+                  setWizardStep(1);
+                  setErrors({});
+                }}
+                className={`px-3.5 sm:px-5 py-2 rounded-full text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
+                  activeTab === 'seminariste'
+                    ? 'bg-white text-[#F97316] shadow-md font-bold'
+                    : 'bg-white/20 text-white hover:bg-white/30 backdrop-blur-xs'
+                }`}
+              >
+                Séminariste (4 étapes)
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('formateur');
+                  setWizardStep(1);
+                  setErrors({});
+                }}
+                className={`px-3.5 sm:px-5 py-2 rounded-full text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
+                  activeTab === 'formateur'
+                    ? 'bg-white text-[#F97316] shadow-md font-bold'
+                    : 'bg-white/20 text-white hover:bg-white/30 backdrop-blur-xs'
+                }`}
+              >
+                Formateur
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('commission');
+                  setWizardStep(1);
+                  setErrors({});
+                }}
+                className={`px-3.5 sm:px-5 py-2 rounded-full text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
+                  activeTab === 'commission'
+                    ? 'bg-white text-[#F97316] shadow-md font-bold'
+                    : 'bg-white/20 text-white hover:bg-white/30 backdrop-blur-xs'
+                }`}
+              >
+                Membre de Commission
+              </button>
+            </div>
+
+            {/* ------------------------------------------------------------- */}
+            {/* CAS 1 : FORMULAIRE SÉMINARISTE (4 ÉTAPES)                    */}
+            {/* ------------------------------------------------------------- */}
+            {activeTab === 'seminariste' && (
+              <div className="space-y-5">
+                {/* INDICATEUR D'ÉTAPES (carte blanche arrondie 12 px) */}
+                <div className="bg-white rounded-[12px] p-4 sm:p-5 shadow-md border border-gray-100">
+                  <div className="flex items-center justify-between relative">
+                    {/* Lignes de liaison */}
+                    <div className="absolute top-4.5 left-6 right-6 h-0.5 bg-gray-200 -z-0">
+                      <div
+                        className="h-full bg-[#10B981] transition-all duration-300"
+                        style={{ width: `${((wizardStep - 1) / 3) * 100}%` }}
+                      />
+                    </div>
+
+                    {[
+                      { step: 1, label: 'Informations personnelles' },
+                      { step: 2, label: 'Informations organisationnelles' },
+                      { step: 3, label: 'Photo' },
+                      { step: 4, label: 'Paiement' }
+                    ].map(item => {
+                      const isCompleted = item.step < wizardStep;
+                      const isCurrent = item.step === wizardStep;
+
+                      return (
+                        <div key={item.step} className="flex flex-col items-center relative z-10 w-1/4">
+                          <div
+                            className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
+                              isCompleted
+                                ? 'bg-[#10B981] text-white shadow-xs'
+                                : isCurrent
+                                  ? 'bg-[#F97316] text-white ring-4 ring-orange-200 shadow-sm'
+                                  : 'bg-gray-100 text-gray-400 border border-gray-200'
+                            }`}
+                          >
+                            {isCompleted ? <Check className="w-4 h-4 stroke-[3]" /> : item.step}
+                          </div>
+                          <span
+                            className={`text-[11px] mt-2 text-center leading-tight transition-colors hidden sm:block ${
+                              isCurrent
+                                ? 'text-[#F97316] font-semibold'
+                                : 'text-gray-500'
+                            }`}
+                          >
+                            {item.label}
+                          </span>
                         </div>
-                        <span className="px-2.5 py-1 bg-orange-100 text-orange-900 text-[11px] font-black rounded-lg">
-                          1 / 4
-                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* CARTE DE FORMULAIRE BLANCHE */}
+                <div className="bg-white rounded-[12px] shadow-xl border border-gray-100 p-5 sm:p-7">
+                  
+                  {/* ÉTAPE 1 : INFORMATIONS PERSONNELLES */}
+                  {wizardStep === 1 && (
+                    <div className="space-y-4">
+                      {/* Titre avec petite icône orange à gauche puis trait de séparation */}
+                      <div className="border-b border-gray-200 pb-3 mb-5">
+                        <h2 className="text-[20px] font-bold text-[#1F2937] flex items-center gap-2">
+                          <User className="w-5 h-5 text-[#F97316]" />
+                          <span>Informations personnelles</span>
+                        </h2>
                       </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                        {/* Nom et prénoms */}
-                        <div className="sm:col-span-2">
-                          <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                            Nom & Prénoms complets *
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {/* Nom */}
+                        <div>
+                          <label className="block text-[12px] font-medium text-[#374151] mb-1">
+                            nom <span className="text-[#EF4444]">*</span>
                           </label>
                           <input
                             type="text"
-                            required
-                            placeholder="Ex: TRAORÉ Ibrahim Kalil"
-                            value={fullName}
-                            onChange={e => setFullName(e.target.value)}
-                            className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                            value={nom}
+                            onChange={e => setNom(e.target.value)}
+                            placeholder="ex: KOUASSI"
+                            className={`w-full h-10 px-3 bg-white border rounded-lg text-[16px] text-[#1F2937] placeholder-[#9CA3AF] transition-all focus:outline-none focus:border-[#F97316] focus:ring-2 focus:ring-[#F97316]/20 ${
+                              errors.nom ? 'border-red-400' : nom.trim() ? 'border-emerald-500' : 'border-[#E5E7EB]'
+                            }`}
                           />
+                          {errors.nom && <p className="text-[12px] text-[#EF4444] mt-1">{errors.nom}</p>}
+                        </div>
+
+                        {/* Prénom */}
+                        <div>
+                          <label className="block text-[12px] font-medium text-[#374151] mb-1">
+                            prénom <span className="text-[#EF4444]">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            value={prenom}
+                            onChange={e => setPrenom(e.target.value)}
+                            placeholder="ex: Ibrahim"
+                            className={`w-full h-10 px-3 bg-white border rounded-lg text-[16px] text-[#1F2937] placeholder-[#9CA3AF] transition-all focus:outline-none focus:border-[#F97316] focus:ring-2 focus:ring-[#F97316]/20 ${
+                              errors.prenom ? 'border-red-400' : prenom.trim() ? 'border-emerald-500' : 'border-[#E5E7EB]'
+                            }`}
+                          />
+                          {errors.prenom && <p className="text-[12px] text-[#EF4444] mt-1">{errors.prenom}</p>}
                         </div>
 
                         {/* Genre */}
                         <div>
-                          <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                            Genre *
+                          <label className="block text-[12px] font-medium text-[#374151] mb-1">
+                            genre <span className="text-[#EF4444]">*</span>
                           </label>
-                          <div className="grid grid-cols-2 gap-2">
-                            <button
-                              type="button"
-                              onClick={() => setGender('homme')}
-                              className={`py-2 px-3 text-xs font-bold rounded-xl border transition-all text-center cursor-pointer ${
-                                gender === 'homme'
-                                  ? 'bg-orange-600 text-white border-orange-600 shadow-xs'
-                                  : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
-                              }`}
-                            >
-                              🧔 Frère
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setGender('femme')}
-                              className={`py-2 px-3 text-xs font-bold rounded-xl border transition-all text-center cursor-pointer ${
-                                gender === 'femme'
-                                  ? 'bg-orange-600 text-white border-orange-600 shadow-xs'
-                                  : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
-                              }`}
-                            >
-                              🧕 Sœur
-                            </button>
-                          </div>
+                          <select
+                            value={genre}
+                            onChange={e => setGenre(e.target.value as 'homme' | 'femme')}
+                            className="w-full h-10 px-3 bg-white border border-[#E5E7EB] rounded-lg text-[16px] text-[#1F2937] transition-all focus:outline-none focus:border-[#F97316] focus:ring-2 focus:ring-[#F97316]/20"
+                          >
+                            <option value="homme">Frère</option>
+                            <option value="femme">Sœur</option>
+                          </select>
                         </div>
 
                         {/* Date de naissance */}
                         <div>
-                          <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                            Date de naissance *
+                          <label className="block text-[12px] font-medium text-[#374151] mb-1">
+                            date de naissance <span className="text-[#EF4444]">*</span>
                           </label>
                           <input
                             type="date"
-                            required
-                            min="1930-01-01"
-                            max={new Date().toISOString().split('T')[0]}
                             value={birthDate}
                             onChange={e => setBirthDate(e.target.value)}
-                            className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-orange-500"
+                            min="1930-01-01"
+                            max={new Date().toISOString().split('T')[0]}
+                            className={`w-full h-10 px-3 bg-white border rounded-lg text-[16px] text-[#1F2937] transition-all focus:outline-none focus:border-[#F97316] focus:ring-2 focus:ring-[#F97316]/20 ${
+                              errors.birthDate ? 'border-red-400' : birthDate ? 'border-emerald-500' : 'border-[#E5E7EB]'
+                            }`}
                           />
-                          {birthDate && (
-                            <p className="text-[11px] text-slate-600 mt-1 font-medium">
-                              Âge calculé : <span className="font-bold text-orange-700">{participantAge !== null ? `${participantAge} ans` : '—'}</span>
-                              {isMinor && (
-                                <span className="ml-1 text-amber-700 font-bold">(Mineur &lt; 18 ans • contact parent requis)</span>
-                              )}
-                            </p>
-                          )}
+                          {errors.birthDate && <p className="text-[12px] text-[#EF4444] mt-1">{errors.birthDate}</p>}
                         </div>
 
-                        {/* Téléphone (Appels) */}
+                        {/* Téléphone */}
                         <div>
-                          <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                            Téléphone (Appels) *
+                          <label className="block text-[12px] font-medium text-[#374151] mb-1">
+                            téléphone <span className="text-[#EF4444]">*</span>
                           </label>
-                          <div className="relative">
-                            <input
-                              type="tel"
-                              required
-                              placeholder="Ex: 07 48 11 22 33"
-                              value={phone}
-                              onChange={e => handlePhoneChange(e.target.value)}
-                              className="w-full px-3 py-2 pl-9 bg-slate-50 border border-slate-300 rounded-xl text-sm font-mono font-bold focus:outline-none focus:ring-2 focus:ring-orange-500"
-                            />
-                            <Phone className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-                          </div>
+                          <input
+                            type="tel"
+                            value={phone}
+                            onChange={e => setPhone(e.target.value)}
+                            placeholder="07 XX XX XX XX"
+                            className={`w-full h-10 px-3 bg-white border rounded-lg text-[16px] text-[#1F2937] placeholder-[#9CA3AF] transition-all focus:outline-none focus:border-[#F97316] focus:ring-2 focus:ring-[#F97316]/20 ${
+                              errors.phone ? 'border-red-400' : phone.trim() ? 'border-emerald-500' : 'border-[#E5E7EB]'
+                            }`}
+                          />
+                          {errors.phone && <p className="text-[12px] text-[#EF4444] mt-1">{errors.phone}</p>}
                         </div>
 
-                        {/* WhatsApp */}
+                        {/* Niveau d'étude */}
                         <div>
-                          <div className="flex items-center justify-between mb-1">
-                            <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                              Numéro WhatsApp
-                            </label>
-                            {phone && (!whatsapp || whatsapp !== phone) && (
-                              <button
-                                type="button"
-                                onClick={() => setWhatsapp(phone)}
-                                className="text-[10px] text-orange-600 font-bold hover:underline cursor-pointer"
-                              >
-                                Même que téléphone
-                              </button>
-                            )}
-                          </div>
-                          <div className="relative">
-                            <input
-                              type="tel"
-                              placeholder="Ex: 07 48 11 22 33"
-                              value={whatsapp}
-                              onChange={e => setWhatsapp(e.target.value)}
-                              className="w-full px-3 py-2 pl-9 bg-slate-50 border border-slate-300 rounded-xl text-sm font-mono focus:outline-none focus:ring-2 focus:ring-orange-500"
-                            />
-                            <Smartphone className="w-4 h-4 text-orange-600 absolute left-3 top-2.5" />
-                          </div>
-                        </div>
-
-                        {/* Photo d'identité */}
-                        <div className="sm:col-span-2 p-3 bg-slate-50 border border-slate-200 rounded-2xl flex items-center justify-between gap-3">
-                          <div className="flex items-center gap-3">
-                            <div className="w-12 h-14 bg-white border-2 border-orange-500 rounded-md overflow-hidden flex items-center justify-center shrink-0 shadow-xs">
-                              {photoUrl ? (
-                                <img src={photoUrl} alt="Photo" className="w-full h-full object-cover" />
-                              ) : (
-                                <User className="w-6 h-6 text-slate-400" />
-                              )}
-                            </div>
-                            <div>
-                              <p className="text-xs font-bold text-slate-800">Photo d'Identité pour le Reçu & Badge</p>
-                              <p className="text-[11px] text-slate-500">Figure sur la fiche officielle et la carte plastifiée.</p>
-                            </div>
-                          </div>
-
-                          <label className="px-3.5 py-2 bg-orange-100 hover:bg-orange-200 text-orange-950 border border-orange-300 rounded-xl text-xs font-bold cursor-pointer transition-all flex items-center gap-1.5 shrink-0">
-                            <Camera className="w-3.5 h-3.5" />
-                            <span>{photoUrl ? 'Changer' : 'Ajouter Photo'}</span>
-                            <input
-                              type="file"
-                              accept="image/*"
-                              className="hidden"
-                              onChange={e => {
-                                const file = e.target.files?.[0];
-                                if (file) {
-                                  const reader = new FileReader();
-                                  reader.onloadend = () => {
-                                    setPhotoUrl(reader.result as string);
-                                  };
-                                  reader.readAsDataURL(file);
-                                }
-                              }}
-                            />
-                          </label>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* ÉTAPE 2 : SCOLARITÉ & ORIGINE */}
-                  {wizardStep === 2 && (
-                    <div className="space-y-4 animate-in fade-in duration-200">
-                      <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                        <div>
-                          <h3 className="text-sm font-black text-slate-900 uppercase tracking-wide">
-                            Étape 2 : Cursus Scolaire & Origine
-                          </h3>
-                          <p className="text-xs text-slate-500">
-                            Indiquez votre provenance dans le Gôh et vos informations de scolarité.
-                          </p>
-                        </div>
-                        <span className="px-2.5 py-1 bg-orange-100 text-orange-900 text-[11px] font-black rounded-lg">
-                          2 / 4
-                        </span>
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                        {/* Sous-comité */}
-                        <div className="sm:col-span-2">
-                          <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                            Sous-Comité AEEMCI de provenance *
-                          </label>
-                          <select
-                            value={subCommittee}
-                            onChange={e => setSubCommittee(e.target.value)}
-                            className="w-full px-3 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-orange-500"
-                          >
-                            {config.subCommittees.map(sc => (
-                              <option key={sc.id} value={sc.name}>
-                                {sc.name}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-
-                        {/* Niveau d'études */}
-                        <div>
-                          <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                            Niveau d'études *
+                          <label className="block text-[12px] font-medium text-[#374151] mb-1">
+                            niveau d'étude <span className="text-[#EF4444]">*</span>
                           </label>
                           <select
                             value={schoolLevel}
                             onChange={e => setSchoolLevel(e.target.value)}
-                            className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-orange-500"
+                            className="w-full h-10 px-3 bg-white border border-[#E5E7EB] rounded-lg text-[16px] text-[#1F2937] transition-all focus:outline-none focus:border-[#F97316] focus:ring-2 focus:ring-[#F97316]/20"
                           >
-                            <option value="Collège">Collège (6ème à 3ème)</option>
-                            <option value="Lycée">Lycée (2nde à Terminale)</option>
-                            <option value="Université / Supérieur">Université / Supérieur</option>
+                            <option value="Collège (6ème à 3ème)">Collège (6ème à 3ème)</option>
+                            <option value="Lycée (2nde à Terminale)">Lycée (2nde à Terminale)</option>
+                            <option value="Université / Grande École">Université / Grande École</option>
                             <option value="Professionnel / Travailleur">Professionnel / Travailleur</option>
                             <option value="Autre">Autre</option>
                           </select>
                         </div>
+                      </div>
 
-                        {/* Établissement */}
-                        <div>
-                          <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                            Établissement ou Commune
-                          </label>
-                          <input
-                            type="text"
-                            placeholder="Ex: Lycée Moderne 1 de Gagnoa"
-                            value={schoolName}
-                            onChange={e => setSchoolName(e.target.value)}
-                            className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
-                          />
-                        </div>
+                      {/* Boutons d'action */}
+                      <div className="border-t border-gray-200 pt-4 mt-6 flex items-center justify-between">
+                        <button
+                          type="button"
+                          onClick={onClose}
+                          className="px-4 py-2 bg-[#F3F4F6] hover:bg-gray-200 text-[#374151] text-xs font-semibold rounded-lg transition-all cursor-pointer flex items-center gap-1.5"
+                        >
+                          <ArrowLeft className="w-3.5 h-3.5" />
+                          <span>‹ Retour à l'accueil</span>
+                        </button>
 
-                        {/* Contact parent / tuteur */}
-                        <div>
-                          <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                            Contact Parent / Tuteur {isMinor ? '*' : '(Facultatif)'}
-                          </label>
-                          <input
-                            type="tel"
-                            required={isMinor}
-                            placeholder={isMinor ? "Ex: 07 48 11 22 33 (Requis pour mineur)" : "Ex: 07 48 11 22 33 (Facultatif)"}
-                            value={parentContact}
-                            onChange={e => setParentContact(e.target.value)}
-                            className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-sm font-mono focus:outline-none focus:ring-2 focus:ring-orange-500"
-                          />
-                          <p className="text-[10px] text-slate-500 mt-1">
-                            {isMinor 
-                              ? "Numéro obligatoire pour les participants de moins de 18 ans en cas d'urgence." 
-                              : "Numéro joignable en cas d'urgence durant le séminaire (facultatif pour les majeurs)."}
-                          </p>
-                        </div>
-
-                        {/* Mode de transport */}
-                        <div>
-                          <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                            Mode de Transport vers Gagnoa (Facultatif)
-                          </label>
-                          <select
-                            value={transportMode}
-                            onChange={e => setTransportMode(e.target.value)}
-                            className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
-                          >
-                            <option value="">Sélectionnez un mode de transport (facultatif)</option>
-                            <option value="Convoi organisé par le Sous-Comité">Convoi organisé par le Sous-Comité</option>
-                            <option value="Transport personnel depuis l'intérieur">Transport personnel</option>
-                            <option value="Car affrété AEEMCI">Car affrété AEEMCI</option>
-                            <option value="Résident sur place à Gagnoa">Résident sur place à Gagnoa</option>
-                          </select>
-                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (validateSeminaristeStep(1)) {
+                              setWizardStep(2);
+                            }
+                          }}
+                          className="px-5 py-2 bg-[#F97316] hover:bg-[#EA580C] text-white text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center gap-1.5 shadow-sm"
+                        >
+                          <span>Suivant ›</span>
+                          <ArrowRight className="w-3.5 h-3.5" />
+                        </button>
                       </div>
                     </div>
                   )}
 
-                  {/* ÉTAPE 3 : CHOIX DE LA TENUE (POLO OU T-SHIRT) */}
-                  {wizardStep === 3 && (
-                    <div className="space-y-4 animate-in fade-in duration-200">
-                      <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                        <div>
-                          <h3 className="text-sm font-black text-slate-900 uppercase tracking-wide">
-                            Étape 3 : Tenue Officielle du Séminaire
-                          </h3>
-                          <p className="text-xs text-slate-500">
-                            Choisissez votre tenue officielle : Polo brodé ou Tee-shirt simple aux couleurs du SERFIG 2027.
-                          </p>
+                  {/* ÉTAPE 2 : INFORMATIONS ORGANISATIONNELLES */}
+                  {wizardStep === 2 && (
+                    <div className="space-y-5">
+                      <div className="border-b border-gray-200 pb-3 mb-5">
+                        <h2 className="text-[20px] font-bold text-[#1F2937] flex items-center gap-2">
+                          <Star className="w-5 h-5 text-[#F97316]" />
+                          <span>Informations organisationnelles</span>
+                        </h2>
+                      </div>
+
+                      {/* Sous-comité */}
+                      <div>
+                        <label className="block text-[12px] font-medium text-[#374151] mb-1">
+                          sous-comité <span className="text-[#EF4444]">*</span>
+                        </label>
+                        <select
+                          value={subCommittee}
+                          onChange={e => setSubCommittee(e.target.value)}
+                          className="w-full h-10 px-3 bg-white border border-[#E5E7EB] rounded-lg text-[16px] text-[#1F2937] transition-all focus:outline-none focus:border-[#F97316] focus:ring-2 focus:ring-[#F97316]/20"
+                        >
+                          {config.subCommittees.map(sc => (
+                            <option key={sc.id} value={sc.name}>
+                              {sc.name} ({formatFCFA(sc.fee)})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* BOÎTE POLO (fond #F9FAFB, bordure grise) */}
+                      <div className="bg-[#F9FAFB] border border-[#E5E7EB] rounded-lg p-4 space-y-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                            <input
+                              type="checkbox"
+                              checked={wantsPolo}
+                              onChange={e => setWantsPolo(e.target.checked)}
+                              className="w-4 h-4 text-[#F97316] rounded border-gray-300 focus:ring-[#F97316]"
+                            />
+                            <span className="text-sm font-semibold text-[#1F2937]">
+                              Je souhaite commander un polo
+                            </span>
+                          </label>
+                          <span className="text-sm font-bold text-[#F97316] shrink-0">
+                            + {formatFCFA(config.poloPrice || 2500)}
+                          </span>
                         </div>
-                        <span className="px-2.5 py-1 bg-orange-100 text-orange-900 text-[11px] font-black rounded-lg">
-                          3 / 4
-                        </span>
-                      </div>
+                        <p className="text-[12px] text-gray-500">
+                          Polo officiel SERFIG 2027 de qualité supérieure avec logo brodé.
+                        </p>
 
-                      {/* 3 Clothing Selection Cards */}
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                        <button
-                          type="button"
-                          onClick={() => setClothingChoice('aucun')}
-                          className={`p-4 rounded-2xl border-2 text-left transition-all cursor-pointer flex flex-col justify-between ${
-                            clothingChoice === 'aucun'
-                              ? 'bg-slate-800 text-white border-slate-800 shadow-md ring-2 ring-slate-400'
-                              : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
-                          }`}
-                        >
-                          <div>
-                            <span className="text-xl mb-1 block">🚫</span>
-                            <span className="block text-sm font-bold">Sans tenue</span>
-                            <span className={`text-xs block mt-0.5 ${clothingChoice === 'aucun' ? 'text-slate-300' : 'text-slate-500'}`}>
-                              Participation uniquement
-                            </span>
-                          </div>
-                          <span className="text-sm font-black mt-3 block">+0 FCFA</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => setClothingChoice('polo')}
-                          className={`p-4 rounded-2xl border-2 text-left transition-all cursor-pointer flex flex-col justify-between ${
-                            clothingChoice === 'polo'
-                              ? 'bg-orange-600 text-white border-orange-600 shadow-md ring-2 ring-orange-300'
-                              : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
-                          }`}
-                        >
-                          <div>
-                            <span className="text-xl mb-1 block">👕</span>
-                            <span className="block text-sm font-bold">Polo Brodé Officiel</span>
-                            <span className={`text-xs block mt-0.5 ${clothingChoice === 'polo' ? 'text-orange-100' : 'text-slate-500'}`}>
-                              Col renforcé & broderie SERFIG
-                            </span>
-                          </div>
-                          <span className="text-sm font-black mt-3 block text-orange-200">
-                            2 500 FCFA
-                          </span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => setClothingChoice('tshirt')}
-                          className={`p-4 rounded-2xl border-2 text-left transition-all cursor-pointer flex flex-col justify-between ${
-                            clothingChoice === 'tshirt'
-                              ? 'bg-orange-600 text-white border-orange-600 shadow-md ring-2 ring-orange-300'
-                              : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
-                          }`}
-                        >
-                          <div>
-                            <span className="text-xl mb-1 block">👕</span>
-                            <span className="block text-sm font-bold">Tee-shirt Simple</span>
-                            <span className={`text-xs block mt-0.5 ${clothingChoice === 'tshirt' ? 'text-orange-100' : 'text-slate-500'}`}>
-                              100% Coton sérigraphié
-                            </span>
-                          </div>
-                          <span className="text-sm font-black mt-3 block text-orange-200">
-                            2 000 FCFA
-                          </span>
-                        </button>
-                      </div>
-
-                      {clothingChoice !== 'aucun' && (
-                        <div className="p-4 bg-orange-50/80 border border-orange-200 rounded-2xl space-y-3 animate-in fade-in">
-                          <p className="text-xs font-bold text-orange-950">
-                            Précisez votre taille et couleur pour {clothingChoice === 'polo' ? 'le Polo Brodé' : 'le Tee-shirt Simple'} :
-                          </p>
-
-                          <div className="grid grid-cols-2 gap-3">
+                        {/* Listes Taille et Couleur quand coché */}
+                        {wantsPolo && (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-gray-200">
                             <div>
-                              <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
-                                Taille
+                              <label className="block text-[12px] font-medium text-[#374151] mb-1">
+                                taille
                               </label>
                               <select
                                 value={poloSize}
                                 onChange={e => setPoloSize(e.target.value as any)}
-                                className="w-full px-3 py-2 bg-white border border-orange-300 rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                className="w-full h-10 px-3 bg-white border border-[#E5E7EB] rounded-lg text-[16px] text-[#1F2937] focus:outline-none focus:border-[#F97316]"
                               >
-                                <option value="S">Taille S</option>
-                                <option value="M">Taille M</option>
-                                <option value="L">Taille L (Standard)</option>
-                                <option value="XL">Taille XL</option>
-                                <option value="2XL">Taille 2XL</option>
-                                <option value="3XL">Taille 3XL</option>
+                                <option value="S">S</option>
+                                <option value="M">M</option>
+                                <option value="L">L</option>
+                                <option value="XL">XL</option>
+                                <option value="2XL">2XL</option>
+                                <option value="3XL">3XL</option>
                               </select>
                             </div>
 
                             <div>
-                              <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
-                                Coloris
+                              <label className="block text-[12px] font-medium text-[#374151] mb-1">
+                                couleur
                               </label>
                               <select
                                 value={poloColor}
                                 onChange={e => setPoloColor(e.target.value)}
-                                className="w-full px-3 py-2 bg-white border border-orange-300 rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                className="w-full h-10 px-3 bg-white border border-[#E5E7EB] rounded-lg text-[16px] text-[#1F2937] focus:outline-none focus:border-[#F97316]"
                               >
-                                <option value="Vert Forêt">Vert Forêt AEEMCI</option>
-                                <option value="Blanc Col Vert">Blanc Cérémonie</option>
-                                <option value="Noir">Noir Prestige</option>
+                                <option value="Vert Forêt AEEMCI">Vert Forêt AEEMCI</option>
+                                <option value="Blanc Cérémonie">Blanc Cérémonie</option>
+                                <option value="Noir Prestige">Noir Prestige</option>
                               </select>
                             </div>
                           </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* ÉTAPE 4 : RÉCAPITULATIF & PAIEMENT WAVE DÉBIT DIRECT */}
-                  {wizardStep === 4 && (
-                    <div className="space-y-4 animate-in fade-in duration-200">
-                      <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                        <div>
-                          <h3 className="text-sm font-black text-slate-900 uppercase tracking-wide">
-                            Étape 4 : Récapitulatif & Règlement Wave
-                          </h3>
-                          <p className="text-xs text-slate-500">
-                            Finalisez votre inscription par prélèvement direct sur votre compte Wave.
-                          </p>
-                        </div>
-                        <span className="px-2.5 py-1 bg-orange-100 text-orange-900 text-[11px] font-black rounded-lg">
-                          4 / 4
-                        </span>
+                        )}
                       </div>
 
-                      {/* Financial Summary Card */}
-                      <div className="p-4 bg-orange-50/70 rounded-2xl border-2 border-orange-200 space-y-2.5">
-                        <div className="flex items-center justify-between text-xs text-slate-600">
-                          <span>Frais de participation Séminariste (Région du Gôh) :</span>
-                          <span className="font-bold text-slate-800">2 000 FCFA</span>
+                      {/* CARTE RÉCAPITULATIF (bordure grise) */}
+                      <div className="bg-[#F9FAFB] border border-[#E5E7EB] rounded-lg p-4 space-y-2">
+                        <div className="flex justify-between text-xs text-gray-600">
+                          <span>Participation ({subCommittee})</span>
+                          <span className="font-semibold text-gray-900">{formatFCFA(participantFee)}</span>
                         </div>
-
-                        {clothingChoice !== 'aucun' && (
-                          <div className="flex items-center justify-between text-xs text-slate-600">
-                            <span>{clothingChoice === 'polo' ? 'Polo Officiel Brodé (Taille ' + poloSize + ')' : 'Tee-shirt Simple (Taille ' + poloSize + ')'} :</span>
-                            <span className="font-bold text-orange-600">+{clothingFee.toLocaleString('fr-FR')} FCFA</span>
+                        {wantsPolo && (
+                          <div className="flex justify-between text-xs text-gray-600">
+                            <span>Polo SERFIG 2027</span>
+                            <span className="font-semibold text-gray-900">{formatFCFA(poloFee)}</span>
                           </div>
                         )}
-
-                        <div className="flex items-center justify-between text-sm sm:text-base font-black text-orange-950 pt-2 border-t border-orange-200">
-                          <span>Montant Total à régler :</span>
-                          <span className="text-lg text-orange-600 font-mono font-black">
-                            {totalAmount.toLocaleString('fr-FR')} FCFA
+                        <div className="border-t border-gray-200 pt-2 flex items-baseline justify-between">
+                          <span className="text-xs font-bold text-gray-700 uppercase">Total à payer</span>
+                          <span className="text-[22px] font-bold text-[#F97316]">
+                            {formatFCFA(totalToPay)}
                           </span>
                         </div>
                       </div>
 
-                      {/* Payment Method Selector */}
-                      <div className="space-y-3">
-                        <label className="block text-xs font-black text-slate-800 uppercase tracking-wider">
-                          Mode de Règlement
-                        </label>
-
-                        <div className="grid grid-cols-2 gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setPaymentMethod('Wave')}
-                            className={`p-3 rounded-2xl border-2 text-center transition-all cursor-pointer flex items-center justify-center gap-2 ${
-                              paymentMethod === 'Wave'
-                                ? 'bg-blue-600 text-white border-blue-600 font-bold shadow-md ring-2 ring-blue-300'
-                                : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
+                      {/* Parents / Tuteurs (obligatoires si mineur) */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                        <div>
+                          <label className="block text-[12px] font-medium text-[#374151] mb-1">
+                            nom du parent/tuteur {isMinor && <span className="text-[#EF4444]">*</span>}
+                            <span className="text-[11px] text-gray-400 font-normal ml-1">
+                              {isMinor ? '(obligatoire si moins de 18 ans)' : '(facultatif)'}
+                            </span>
+                          </label>
+                          <input
+                            type="text"
+                            value={parentName}
+                            onChange={e => setParentName(e.target.value)}
+                            placeholder="ex: M. KOUASSI Moussa"
+                            className={`w-full h-10 px-3 bg-white border rounded-lg text-[16px] text-[#1F2937] placeholder-[#9CA3AF] transition-all focus:outline-none focus:border-[#F97316] ${
+                              errors.parentName ? 'border-red-400' : 'border-[#E5E7EB]'
                             }`}
-                          >
-                            <span className="text-lg">🌊</span>
-                            <span className="font-bold text-xs sm:text-sm">Paiement Direct Wave</span>
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => setPaymentMethod('Espèces sur place')}
-                            className={`p-3 rounded-2xl border-2 text-center transition-all cursor-pointer flex items-center justify-center gap-2 ${
-                              paymentMethod === 'Espèces sur place'
-                                ? 'bg-slate-800 text-white border-slate-800 font-bold shadow-md'
-                                : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
-                            }`}
-                          >
-                            <CreditCard className="w-4 h-4" />
-                            <span className="font-bold text-xs sm:text-sm">Autre / Sur place</span>
-                          </button>
+                          />
+                          {errors.parentName && <p className="text-[12px] text-[#EF4444] mt-1">{errors.parentName}</p>}
                         </div>
 
-                        {/* Wave Input Block */}
-                        {paymentMethod === 'Wave' ? (
-                          <div className="p-4 bg-blue-50 border-2 border-blue-200 rounded-2xl space-y-2.5">
-                            <div className="flex items-center justify-between">
-                              <span className="text-xs font-bold text-blue-950 flex items-center gap-1.5">
-                                <span className="text-base">🌊</span>
-                                <span>Débit direct sur votre compte Wave</span>
-                              </span>
-                              <span className="text-[10px] font-black bg-blue-200 text-blue-900 px-2 py-0.5 rounded-md">
-                                Recommandé
-                              </span>
-                            </div>
+                        <div>
+                          <label className="block text-[12px] font-medium text-[#374151] mb-1">
+                            contact parent/tuteur {isMinor && <span className="text-[#EF4444]">*</span>}
+                            <span className="text-[11px] text-gray-400 font-normal ml-1">
+                              {isMinor ? '(obligatoire)' : '(facultatif)'}
+                            </span>
+                          </label>
+                          <input
+                            type="tel"
+                            value={parentContact}
+                            onChange={e => setParentContact(e.target.value)}
+                            placeholder="07 XX XX XX XX"
+                            className={`w-full h-10 px-3 bg-white border rounded-lg text-[16px] text-[#1F2937] placeholder-[#9CA3AF] transition-all focus:outline-none focus:border-[#F97316] ${
+                              errors.parentContact ? 'border-red-400' : 'border-[#E5E7EB]'
+                            }`}
+                          />
+                          {errors.parentContact && <p className="text-[12px] text-[#EF4444] mt-1">{errors.parentContact}</p>}
+                        </div>
+                      </div>
 
-                            <div>
-                              <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                                Numéro de compte Wave à débiter *
-                              </label>
-                              <div className="relative">
+                      {/* Question Santé : Avez-vous une maladie ? */}
+                      <div className="bg-[#F9FAFB] border border-[#E5E7EB] rounded-lg p-4 space-y-3">
+                        <label className="block text-[12px] font-medium text-[#374151]">
+                          avez-vous une maladie ? <span className="text-[#EF4444]">*</span>
+                        </label>
+                        <div className="flex items-center gap-6">
+                          <label className="flex items-center gap-2 cursor-pointer text-sm text-[#1F2937]">
+                            <input
+                              type="radio"
+                              name="hasMedical"
+                              checked={hasMedicalCondition === false}
+                              onChange={() => setHasMedicalCondition(false)}
+                              className="text-[#F97316] focus:ring-[#F97316]"
+                            />
+                            <span>Non</span>
+                          </label>
+
+                          <label className="flex items-center gap-2 cursor-pointer text-sm text-[#1F2937]">
+                            <input
+                              type="radio"
+                              name="hasMedical"
+                              checked={hasMedicalCondition === true}
+                              onChange={() => setHasMedicalCondition(true)}
+                              className="text-[#F97316] focus:ring-[#F97316]"
+                            />
+                            <span>Oui</span>
+                          </label>
+                        </div>
+                        {errors.hasMedicalCondition && (
+                          <p className="text-[12px] text-[#EF4444]">{errors.hasMedicalCondition}</p>
+                        )}
+
+                        {hasMedicalCondition && (
+                          <div className="pt-2">
+                            <label className="block text-[12px] font-medium text-[#374151] mb-1">
+                              précisez (maladie, allergie, traitement) <span className="text-[#EF4444]">*</span>
+                            </label>
+                            <input
+                              type="text"
+                              value={medicalDetails}
+                              onChange={e => setMedicalDetails(e.target.value)}
+                              placeholder="ex: Asthme, allergie aux arachides, traitement..."
+                              className={`w-full h-10 px-3 bg-white border rounded-lg text-[16px] text-[#1F2937] placeholder-[#9CA3AF] transition-all focus:outline-none focus:border-[#F97316] ${
+                                errors.medicalDetails ? 'border-red-400' : 'border-[#E5E7EB]'
+                              }`}
+                            />
+                            <p className="text-[11px] text-gray-500 mt-1">
+                              Information confidentielle, réservée à l'équipe d'organisation.
+                            </p>
+                            {errors.medicalDetails && (
+                              <p className="text-[12px] text-[#EF4444] mt-1">{errors.medicalDetails}</p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Boutons d'action */}
+                      <div className="border-t border-gray-200 pt-4 mt-6 flex items-center justify-between">
+                        <button
+                          type="button"
+                          onClick={() => setWizardStep(1)}
+                          className="px-4 py-2 bg-[#F3F4F6] hover:bg-gray-200 text-[#374151] text-xs font-semibold rounded-lg transition-all cursor-pointer flex items-center gap-1.5"
+                        >
+                          <ArrowLeft className="w-3.5 h-3.5" />
+                          <span>‹ Précédent</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (validateSeminaristeStep(2)) {
+                              setWizardStep(3);
+                            }
+                          }}
+                          className="px-5 py-2 bg-[#F97316] hover:bg-[#EA580C] text-white text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center gap-1.5 shadow-sm"
+                        >
+                          <span>Suivant ›</span>
+                          <ArrowRight className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ÉTAPE 3 : PHOTO DE PROFIL */}
+                  {wizardStep === 3 && (
+                    <div className="space-y-5">
+                      <div className="border-b border-gray-200 pb-3 mb-5">
+                        <h2 className="text-[20px] font-bold text-[#1F2937] flex items-center gap-2">
+                          <Camera className="w-5 h-5 text-[#F97316]" />
+                          <span>Photo de profil</span>
+                        </h2>
+                      </div>
+
+                      <p className="text-center text-sm text-gray-500 max-w-md mx-auto">
+                        Ajoutez une photo de profil pour personnaliser votre inscription. Cette étape est optionnelle.
+                      </p>
+
+                      {/* ZONE DE PHOTO : cadre en pointillés gris */}
+                      <div className="max-w-md mx-auto">
+                        {photoUrl ? (
+                          <div className="flex flex-col items-center p-4 bg-[#F9FAFB] border border-gray-200 rounded-xl">
+                            <img
+                              src={photoUrl}
+                              alt="Aperçu photo"
+                              className="w-32 h-32 rounded-xl object-cover border-2 border-emerald-500 shadow-sm mb-3"
+                            />
+                            <div className="flex gap-2">
+                              <label className="px-3 py-1.5 bg-white border border-gray-300 text-xs font-semibold text-gray-700 rounded-lg hover:bg-gray-50 cursor-pointer">
+                                Changer la photo
                                 <input
-                                  type="tel"
-                                  required
-                                  placeholder="Ex: 07 48 11 22 33"
-                                  value={wavePhoneNumber || phone}
-                                  onChange={e => setWavePhoneNumber(e.target.value)}
-                                  className="w-full px-3 py-2.5 pl-9 bg-white border border-blue-300 rounded-xl text-sm font-mono font-bold text-blue-950 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  type="file"
+                                  accept="image/*"
+                                  className="hidden"
+                                  onChange={handlePhotoUpload}
                                 />
-                                <Phone className="w-4 h-4 text-blue-500 absolute left-3 top-3" />
-                              </div>
-                              <p className="text-[11px] text-blue-800 mt-1.5 leading-snug">
-                                Le montant exact de <strong>{totalAmount.toLocaleString('fr-FR')} FCFA</strong> sera débité directement depuis ce compte Wave vers le compte marchand SERFIG 2027.
-                              </p>
-                              <p className="text-[10px] text-blue-600 mt-1 italic">
-                                * API Wave marchande en cours de liaison pour l'encaissement automatique.
-                              </p>
+                              </label>
+                              <button
+                                type="button"
+                                onClick={() => setPhotoUrl('')}
+                                className="px-3 py-1.5 bg-red-50 text-red-600 border border-red-200 text-xs font-semibold rounded-lg hover:bg-red-100 cursor-pointer"
+                              >
+                                Supprimer
+                              </button>
                             </div>
                           </div>
                         ) : (
-                          /* Other payment details */
-                          <div className="p-3 bg-white border border-slate-200 rounded-xl space-y-2">
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                              <div>
-                                <label className="block text-[11px] font-bold text-slate-700 mb-1">Moyen alternatif</label>
-                                <select
-                                  value={paymentMethod}
-                                  onChange={e => setPaymentMethod(e.target.value as any)}
-                                  className="w-full px-2 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-xs"
-                                >
-                                  <option value="Orange Money">Orange Money ({config.paymentNumbers.orangeMoney})</option>
-                                  <option value="MTN MoMo">MTN MoMo ({config.paymentNumbers.mtnMoMo})</option>
-                                  <option value="Moov Money">Moov Money ({config.paymentNumbers.moovMoney})</option>
-                                  <option value="Espèces sur place">Espèces à l'accueil du séminaire</option>
-                                </select>
-                              </div>
-
-                              <div>
-                                <label className="block text-[11px] font-bold text-slate-700 mb-1">Réf. transaction (si déjà payé)</label>
-                                <input
-                                  type="text"
-                                  placeholder="Ex: OM-49281..."
-                                  value={paymentReference}
-                                  onChange={e => setPaymentReference(e.target.value)}
-                                  className="w-full px-2 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-xs font-mono"
-                                />
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </>
-              )}
-
-              {/* ===================================================================== */}
-              {/* COMMISSION PARCOURS (4 ÉTAPES GUIDÉES - ORANGE ET BLANC)              */}
-              {/* ===================================================================== */}
-              {activeTab === 'commission' && (
-                <>
-                  {/* ÉTAPE 1 : COMMISSION & FONCTION */}
-                  {wizardStep === 1 && (
-                    <div className="space-y-4 animate-in fade-in duration-200">
-                      <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                        <div>
-                          <h3 className="text-sm font-black text-slate-900 uppercase tracking-wide">
-                            Étape 1 : Choix de la Commission & Fonction
-                          </h3>
-                          <p className="text-xs text-slate-500">
-                            Sélectionnez la commission d'organisation que vous souhaitez intégrer.
-                          </p>
-                        </div>
-                        <span className="px-2.5 py-1 bg-orange-100 text-orange-900 text-[11px] font-black rounded-lg">
-                          1 / 4
-                        </span>
-                      </div>
-
-                      <div className="p-4 sm:p-5 bg-orange-50/70 border-2 border-orange-200 rounded-2xl space-y-4">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                          <div>
-                            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                              Commission d'affectation *
-                            </label>
-                            <select
-                              value={commission}
-                              onChange={e => setCommission(e.target.value)}
-                              className="w-full px-3 py-2.5 bg-white border border-slate-300 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                            >
-                              <option value="Sécurité & Discipline">Sécurité & Discipline</option>
-                              <option value="Restauration & Cantine">Restauration & Cantine</option>
-                              <option value="Pédagogie & Encadrement">Pédagogie & Encadrement</option>
-                              <option value="Logistique, Dortoirs & Sono">Logistique, Dortoirs & Sono</option>
-                              <option value="Santé & Premiers Secours">Santé & Premiers Secours</option>
-                              <option value="Communication & Média">Communication & Média</option>
-                              <option value="Finances & Accueil">Finances & Accueil</option>
-                              <option value="Hygiène & Cadre de vie">Hygiène & Cadre de vie</option>
-                            </select>
-                          </div>
-
-                          <div>
-                            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                              Poste / Rôle souhaité *
-                            </label>
-                            <select
-                              value={commissionRole}
-                              onChange={e => setCommissionRole(e.target.value)}
-                              className="w-full px-3 py-2.5 bg-white border border-slate-300 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                            >
-                              <option value="Membre actif">Membre actif</option>
-                              <option value="Responsable de commission">Responsable de commission</option>
-                              <option value="Adjoint au responsable">Adjoint au responsable</option>
-                              <option value="Chargé d'équipe">Chargé d'équipe</option>
-                            </select>
-                          </div>
-
-                          <div className="sm:col-span-2">
-                            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                              Expérience antérieure dans l'AEEMCI
-                            </label>
-                            <select
-                              value={commissionExperience}
-                              onChange={e => setCommissionExperience(e.target.value)}
-                              className="w-full px-3 py-2.5 bg-white border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                            >
-                              <option value="Déjà servi dans un précédent séminaire SERFIG">Déjà servi dans un précédent séminaire SERFIG</option>
-                              <option value="Ancien séminaire SEFIHA / SNF / Autre région">Ancien séminaire SEFIHA / SNF / Autre région</option>
-                              <option value="Membre de bureau de sous-comité / section">Membre de bureau de sous-comité / section</option>
-                              <option value="Première participation en commission d'organisation">Première participation en commission d'organisation</option>
-                            </select>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* ÉTAPE 2 : IDENTITÉ & CONTACT */}
-                  {wizardStep === 2 && (
-                    <div className="space-y-4 animate-in fade-in duration-200">
-                      <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                        <div>
-                          <h3 className="text-sm font-black text-slate-900 uppercase tracking-wide">
-                            Étape 2 : Identité & Photo du Membre
-                          </h3>
-                          <p className="text-xs text-slate-500">
-                            Vos coordonnées pour la fiche de commission et le badge officiel.
-                          </p>
-                        </div>
-                        <span className="px-2.5 py-1 bg-orange-100 text-orange-900 text-[11px] font-black rounded-lg">
-                          2 / 4
-                        </span>
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                        <div className="sm:col-span-2">
-                          <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                            Nom & Prénoms complets *
-                          </label>
-                          <input
-                            type="text"
-                            required
-                            placeholder="Ex: OUATTARA Yacouba"
-                            value={fullName}
-                            onChange={e => setFullName(e.target.value)}
-                            className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                            Genre *
-                          </label>
-                          <div className="grid grid-cols-2 gap-2">
-                            <button
-                              type="button"
-                              onClick={() => setGender('homme')}
-                              className={`py-2 px-3 text-xs font-bold rounded-xl border transition-all text-center cursor-pointer ${
-                                gender === 'homme'
-                                  ? 'bg-orange-600 text-white border-orange-600 shadow-xs'
-                                  : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
-                              }`}
-                            >
-                              🧔 Frère
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setGender('femme')}
-                              className={`py-2 px-3 text-xs font-bold rounded-xl border transition-all text-center cursor-pointer ${
-                                gender === 'femme'
-                                  ? 'bg-orange-600 text-white border-orange-600 shadow-xs'
-                                  : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
-                              }`}
-                            >
-                              🧕 Sœur
-                            </button>
-                          </div>
-                        </div>
-
-                        <div>
-                          <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                            Sous-Comité d'origine *
-                          </label>
-                          <select
-                            value={subCommittee}
-                            onChange={e => setSubCommittee(e.target.value)}
-                            className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
-                          >
-                            {config.subCommittees.map(sc => (
-                              <option key={sc.id} value={sc.name}>
-                                {sc.name}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-
-                        <div>
-                          <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                            Numéro Téléphone (Appels) *
-                          </label>
-                          <input
-                            type="tel"
-                            required
-                            placeholder="Ex: 07 48 11 22 33"
-                            value={phone}
-                            onChange={e => handlePhoneChange(e.target.value)}
-                            className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-sm font-mono font-bold focus:outline-none focus:ring-2 focus:ring-orange-500"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                            Numéro WhatsApp
-                          </label>
-                          <input
-                            type="tel"
-                            placeholder="Ex: 07 48 11 22 33"
-                            value={whatsapp}
-                            onChange={e => setWhatsapp(e.target.value)}
-                            className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-sm font-mono focus:outline-none focus:ring-2 focus:ring-orange-500"
-                          />
-                        </div>
-
-                        {/* Photo */}
-                        <div className="sm:col-span-2 p-3 bg-slate-50 border border-slate-200 rounded-2xl flex items-center justify-between gap-3">
-                          <div className="flex items-center gap-3">
-                            <div className="w-12 h-14 bg-white border-2 border-orange-500 rounded-md overflow-hidden flex items-center justify-center shrink-0 shadow-xs">
-                              {photoUrl ? (
-                                <img src={photoUrl} alt="Photo" className="w-full h-full object-cover" />
-                              ) : (
-                                <User className="w-6 h-6 text-slate-400" />
-                              )}
-                            </div>
-                            <div>
-                              <p className="text-xs font-bold text-slate-800">Photo d'Identité pour le Badge</p>
-                              <p className="text-[11px] text-slate-500">Pour le badge officiel de commission.</p>
-                            </div>
-                          </div>
-
-                          <label className="px-3.5 py-2 bg-orange-100 hover:bg-orange-200 text-orange-950 border border-orange-300 rounded-xl text-xs font-bold cursor-pointer transition-all flex items-center gap-1.5 shrink-0">
-                            <Camera className="w-3.5 h-3.5" />
-                            <span>{photoUrl ? 'Changer' : 'Ajouter Photo'}</span>
+                          <label className="border-2 border-dashed border-gray-300 hover:border-[#F97316] rounded-xl p-8 flex flex-col items-center justify-center cursor-pointer transition-all bg-[#F9FAFB] hover:bg-orange-50/40">
+                            <UploadCloud className="w-10 h-10 text-gray-400 mb-2" />
+                            <span className="text-sm font-semibold text-[#1F2937]">
+                              Cliquez pour ajouter une photo
+                            </span>
+                            <span className="text-[11px] text-gray-400 mt-1">
+                              Format recommandé : fond uni
+                            </span>
                             <input
                               type="file"
                               accept="image/*"
                               className="hidden"
-                              onChange={e => {
-                                const file = e.target.files?.[0];
-                                if (file) {
-                                  const reader = new FileReader();
-                                  reader.onloadend = () => {
-                                    setPhotoUrl(reader.result as string);
-                                  };
-                                  reader.readAsDataURL(file);
-                                }
-                              }}
+                              onChange={handlePhotoUpload}
                             />
                           </label>
-                        </div>
+                        )}
+                      </div>
+
+                      {/* Boutons d'action */}
+                      <div className="border-t border-gray-200 pt-4 mt-6 flex items-center justify-between">
+                        <button
+                          type="button"
+                          onClick={() => setWizardStep(2)}
+                          className="px-4 py-2 bg-[#F3F4F6] hover:bg-gray-200 text-[#374151] text-xs font-semibold rounded-lg transition-all cursor-pointer flex items-center gap-1.5"
+                        >
+                          <ArrowLeft className="w-3.5 h-3.5" />
+                          <span>‹ Précédent</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setWizardStep(4)}
+                          className="px-5 py-2 bg-[#F97316] hover:bg-[#EA580C] text-white text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center gap-1.5 shadow-sm"
+                        >
+                          <span>Suivant ›</span>
+                          <ArrowRight className="w-3.5 h-3.5" />
+                        </button>
                       </div>
                     </div>
                   )}
 
-                  {/* ÉTAPE 3 : TENUE DE COMMISSION (POLO OU T-SHIRT) */}
-                  {wizardStep === 3 && (
-                    <div className="space-y-4 animate-in fade-in duration-200">
-                      <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                        <div>
-                          <h3 className="text-sm font-black text-slate-900 uppercase tracking-wide">
-                            Étape 3 : Tenue Officielle du Membre de Commission
-                          </h3>
-                          <p className="text-xs text-slate-500">
-                            Choisissez votre tenue officielle : Polo brodé officiel (2 500 FCFA) ou Tee-shirt simple (2 000 FCFA).
-                          </p>
-                        </div>
-                        <span className="px-2.5 py-1 bg-orange-100 text-orange-900 text-[11px] font-black rounded-lg">
-                          3 / 4
-                        </span>
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                        <button
-                          type="button"
-                          onClick={() => setClothingChoice('aucun')}
-                          className={`p-4 rounded-2xl border-2 text-left transition-all cursor-pointer flex flex-col justify-between ${
-                            clothingChoice === 'aucun'
-                              ? 'bg-slate-800 text-white border-slate-800 shadow-md ring-2 ring-slate-400'
-                              : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
-                          }`}
-                        >
-                          <div>
-                            <span className="text-xl mb-1 block">🚫</span>
-                            <span className="block text-sm font-bold">Sans tenue</span>
-                            <span className={`text-xs block mt-0.5 ${clothingChoice === 'aucun' ? 'text-slate-300' : 'text-slate-500'}`}>
-                              Participation commission
-                            </span>
-                          </div>
-                          <span className="text-sm font-black mt-3 block">+0 FCFA</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => setClothingChoice('polo')}
-                          className={`p-4 rounded-2xl border-2 text-left transition-all cursor-pointer flex flex-col justify-between ${
-                            clothingChoice === 'polo'
-                              ? 'bg-orange-600 text-white border-orange-600 shadow-md ring-2 ring-orange-300'
-                              : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
-                          }`}
-                        >
-                          <div>
-                            <span className="text-xl mb-1 block">👕</span>
-                            <span className="block text-sm font-bold">Polo Brodé Officiel</span>
-                            <span className={`text-xs block mt-0.5 ${clothingChoice === 'polo' ? 'text-orange-100' : 'text-slate-500'}`}>
-                              Recommandé pour visibilité
-                            </span>
-                          </div>
-                          <span className="text-sm font-black mt-3 block text-orange-200">
-                            2 500 FCFA
-                          </span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => setClothingChoice('tshirt')}
-                          className={`p-4 rounded-2xl border-2 text-left transition-all cursor-pointer flex flex-col justify-between ${
-                            clothingChoice === 'tshirt'
-                              ? 'bg-orange-600 text-white border-orange-600 shadow-md ring-2 ring-orange-300'
-                              : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
-                          }`}
-                        >
-                          <div>
-                            <span className="text-xl mb-1 block">👕</span>
-                            <span className="block text-sm font-bold">Tee-shirt Simple</span>
-                            <span className={`text-xs block mt-0.5 ${clothingChoice === 'tshirt' ? 'text-orange-100' : 'text-slate-500'}`}>
-                              100% Coton sérigraphié
-                            </span>
-                          </div>
-                          <span className="text-sm font-black mt-3 block text-orange-200">
-                            2 000 FCFA
-                          </span>
-                        </button>
-                      </div>
-
-                      {clothingChoice !== 'aucun' && (
-                        <div className="p-4 bg-orange-50/80 border border-orange-200 rounded-2xl space-y-3 animate-in fade-in">
-                          <div className="grid grid-cols-2 gap-3">
-                            <div>
-                              <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
-                                Taille
-                              </label>
-                              <select
-                                value={poloSize}
-                                onChange={e => setPoloSize(e.target.value as any)}
-                                className="w-full px-3 py-2 bg-white border border-orange-300 rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-orange-500"
-                              >
-                                <option value="S">Taille S</option>
-                                <option value="M">Taille M</option>
-                                <option value="L">Taille L (Standard)</option>
-                                <option value="XL">Taille XL</option>
-                                <option value="2XL">Taille 2XL</option>
-                                <option value="3XL">Taille 3XL</option>
-                              </select>
-                            </div>
-
-                            <div>
-                              <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
-                                Couleur
-                              </label>
-                              <select
-                                value={poloColor}
-                                onChange={e => setPoloColor(e.target.value)}
-                                className="w-full px-3 py-2 bg-white border border-orange-300 rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-orange-500"
-                              >
-                                <option value="Vert Forêt">Vert Forêt AEEMCI</option>
-                                <option value="Blanc Col Vert">Blanc Cérémonie</option>
-                                <option value="Noir">Noir Prestige</option>
-                              </select>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* ÉTAPE 4 : DÉBIT WAVE DIRECT POUR COMMISSION */}
+                  {/* ÉTAPE 4 : PAIEMENT WAVE MONEY */}
                   {wizardStep === 4 && (
-                    <div className="space-y-4 animate-in fade-in duration-200">
-                      <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                        <div>
-                          <h3 className="text-sm font-black text-slate-900 uppercase tracking-wide">
-                            Étape 4 : Débit Direct Wave (Commission)
-                          </h3>
-                          <p className="text-xs text-slate-500">
-                            Le montant total sera directement débité sur votre compte Wave.
-                          </p>
-                        </div>
-                        <span className="px-2.5 py-1 bg-orange-100 text-orange-900 text-[11px] font-black rounded-lg">
-                          4 / 4
-                        </span>
+                    <div className="space-y-5">
+                      <div className="border-b border-gray-200 pb-3 mb-5">
+                        <h2 className="text-[20px] font-bold text-[#1F2937] flex items-center gap-2">
+                          <CreditCard className="w-5 h-5 text-[#F97316]" />
+                          <span>Paiement Wave Money</span>
+                        </h2>
                       </div>
 
-                      {/* Financials */}
-                      <div className="p-4 bg-orange-50/70 rounded-2xl border-2 border-orange-200 space-y-2">
-                        <div className="flex items-center justify-between text-xs text-slate-600">
-                          <span>Frais de participation Commission :</span>
-                          <span className="font-bold text-slate-800">2 000 FCFA</span>
-                        </div>
-
-                        {clothingChoice !== 'aucun' && (
-                          <div className="flex items-center justify-between text-xs text-slate-600">
-                            <span>{clothingChoice === 'polo' ? 'Polo Brodé' : 'Tee-shirt Simple'} :</span>
-                            <span className="font-bold text-orange-600">+{clothingFee.toLocaleString('fr-FR')} FCFA</span>
+                      {/* CARTE PAIEMENT WAVE : carte orange en dégradé avec titre en BLANC */}
+                      <div className="bg-gradient-to-r from-[#F97316] to-[#FF9142] rounded-xl p-5 sm:p-6 text-white shadow-md space-y-3">
+                        <h3 className="text-base font-bold text-white tracking-wide">
+                          Récapitulatif de votre commande
+                        </h3>
+                        
+                        <div className="space-y-1.5 text-xs text-orange-50 border-t border-white/20 pt-2.5">
+                          <div className="flex justify-between">
+                            <span>Participation séminaire ({subCommittee})</span>
+                            <span className="font-semibold text-white">{formatFCFA(participantFee)}</span>
                           </div>
-                        )}
+                          {wantsPolo && (
+                            <div className="flex justify-between">
+                              <span>Polo officiel ({poloSize} - {poloColor})</span>
+                              <span className="font-semibold text-white">{formatFCFA(poloFee)}</span>
+                            </div>
+                          )}
+                        </div>
 
-                        <div className="flex items-center justify-between text-sm sm:text-base font-black text-orange-950 pt-2 border-t border-orange-200">
-                          <span>Total à prélever sur votre compte Wave :</span>
-                          <span className="text-lg text-orange-600 font-mono font-black">
-                            {totalAmount.toLocaleString('fr-FR')} FCFA
+                        <div className="border-t border-white/30 pt-3 flex items-baseline justify-between">
+                          <span className="text-xs uppercase font-extrabold tracking-wider text-orange-100">
+                            Total à payer
+                          </span>
+                          <span className="text-[26px] font-black text-white">
+                            {formatFCFA(totalToPay)}
                           </span>
                         </div>
                       </div>
 
-                      {/* Wave Input Box */}
-                      <div className="p-4 bg-blue-50 border-2 border-blue-200 rounded-2xl space-y-2.5">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-bold text-blue-950 flex items-center gap-1.5">
-                            <span className="text-base">🌊</span>
-                            <span>Débit direct sur votre compte Wave</span>
-                          </span>
-                          <span className="text-[10px] font-black bg-blue-200 text-blue-900 px-2 py-0.5 rounded-md">
-                            Direct Wave
-                          </span>
+                      {/* BOÎTE D'INFORMATION WAVE (#F0FDFA avec cercle orange) */}
+                      <div className="bg-[#F0FDFA] border border-teal-200/80 rounded-xl p-4 sm:p-5 space-y-4">
+                        <div className="flex items-start gap-3">
+                          <div className="w-9 h-9 rounded-full bg-[#F97316] text-white flex items-center justify-center shrink-0 shadow-xs">
+                            <CreditCard className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <h4 className="text-sm font-bold text-[#F97316]">
+                              Paiement via Wave Money
+                            </h4>
+                            <p className="text-xs text-gray-600 mt-0.5">
+                              Entrez votre numéro Wave pour finaliser l'inscription.
+                            </p>
+                          </div>
                         </div>
 
                         <div>
-                          <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                            Numéro de compte Wave à débiter *
+                          <label className="block text-[12px] font-medium text-[#374151] mb-1">
+                            numéro wave <span className="text-[#EF4444]">*</span>
                           </label>
-                          <div className="relative">
-                            <input
-                              type="tel"
-                              required
-                              placeholder="Ex: 07 48 11 22 33"
-                              value={wavePhoneNumber || phone}
-                              onChange={e => setWavePhoneNumber(e.target.value)}
-                              className="w-full px-3 py-2.5 pl-9 bg-white border border-blue-300 rounded-xl text-sm font-mono font-bold text-blue-950 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            />
-                            <Phone className="w-4 h-4 text-blue-500 absolute left-3 top-3" />
-                          </div>
-                          <p className="text-[11px] text-blue-800 mt-1.5 leading-snug">
-                            Le montant total de <strong>{totalAmount.toLocaleString('fr-FR')} FCFA</strong> sera prélevé de votre compte Wave vers le compte marchand SERFIG 2027.
+                          <input
+                            type="tel"
+                            value={wavePhoneNumber}
+                            onChange={e => setWavePhoneNumber(e.target.value)}
+                            placeholder="07 XX XX XX XX"
+                            className={`w-full h-10 px-3 bg-white border rounded-lg text-[16px] text-[#1F2937] placeholder-[#9CA3AF] transition-all focus:outline-none focus:border-[#F97316] ${
+                              errors.wavePhoneNumber ? 'border-red-400' : 'border-[#E5E7EB]'
+                            }`}
+                          />
+                          <p className="text-[11px] text-gray-500 mt-1">
+                            Le paiement sera effectué via Wave Money.
                           </p>
+                          {errors.wavePhoneNumber && (
+                            <p className="text-[12px] text-[#EF4444] mt-1">{errors.wavePhoneNumber}</p>
+                          )}
                         </div>
+                      </div>
+
+                      {/* Boutons d'action */}
+                      <div className="border-t border-gray-200 pt-4 mt-6 flex items-center justify-between">
+                        <button
+                          type="button"
+                          onClick={() => setWizardStep(3)}
+                          disabled={isSubmitting}
+                          className="px-4 py-2 bg-[#F3F4F6] hover:bg-gray-200 text-[#374151] text-xs font-semibold rounded-lg transition-all cursor-pointer flex items-center gap-1.5"
+                        >
+                          <ArrowLeft className="w-3.5 h-3.5" />
+                          <span>‹ Précédent</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (validateSeminaristeStep(4)) {
+                              submitRegistration();
+                            }
+                          }}
+                          disabled={isSubmitting}
+                          className="px-6 py-2.5 bg-[#10B981] hover:bg-emerald-600 disabled:opacity-50 text-white text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center gap-2 shadow-sm"
+                        >
+                          {isSubmitting ? (
+                            <>
+                              <Loader2 className="w-4 h-4 animate-spin text-white" />
+                              <span>Envoi en cours...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Check className="w-4 h-4" />
+                              <span>Soumettre l'inscription</span>
+                            </>
+                          )}
+                        </button>
                       </div>
                     </div>
                   )}
-                </>
-              )}
 
-              {/* ===================================================================== */}
-              {/* FORMATEUR / AÎNÉ PARCOURS (3 ÉTAPES - ORANGE ET BLANC)               */}
-              {/* ===================================================================== */}
-              {activeTab === 'formateur' && (
-                <>
-                  {/* ÉTAPE 1 : STATUT (FORMATEUR OU AÎNÉ) & DOMAINE */}
-                  {wizardStep === 1 && (
-                    <div className="space-y-4 animate-in fade-in duration-200">
-                      <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                        <div>
-                          <h3 className="text-sm font-black text-slate-900 uppercase tracking-wide">
-                            Étape 1 : Type d'Intervention & Domaine
-                          </h3>
-                          <p className="text-xs text-slate-500">
-                            Choisissez si vous intervenez en qualité de Formateur ou d'Aîné de l'AEEMCI.
-                          </p>
-                        </div>
-                        <span className="px-2.5 py-1 bg-orange-100 text-orange-900 text-[11px] font-black rounded-lg">
-                          1 / 3
-                        </span>
-                      </div>
+                </div>
+              </div>
+            )}
 
-                      {/* 2 Roles Cards */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <button
-                          type="button"
-                          onClick={() => setTrainerSubtype('formateur')}
-                          className={`p-4 rounded-2xl border-2 text-left transition-all cursor-pointer flex items-start gap-3 ${
-                            trainerSubtype === 'formateur'
-                              ? 'bg-orange-600 text-white border-orange-600 shadow-md ring-2 ring-orange-300'
-                              : 'bg-white text-slate-800 border-slate-300 hover:bg-slate-50'
-                          }`}
-                        >
-                          <span className="text-2xl">🎓</span>
-                          <div>
-                            <span className="block text-sm font-black">Formateur Officiel</span>
-                            <span className={`text-[11px] block mt-0.5 leading-snug ${trainerSubtype === 'formateur' ? 'text-orange-100' : 'text-slate-500'}`}>
-                              Dispensation de cours de Fiqh, Hadith, Dogme, Ateliers pratiques.
-                            </span>
-                          </div>
-                        </button>
+            {/* ------------------------------------------------------------- */}
+            {/* CAS 2 : FORMULAIRE FORMATEUR (UNE SEULE PAGE)                 */}
+            {/* ------------------------------------------------------------- */}
+            {activeTab === 'formateur' && (
+              <div className="bg-white rounded-[12px] shadow-xl border border-gray-100 p-5 sm:p-7 space-y-4">
+                <div className="border-b border-gray-200 pb-3 mb-5">
+                  <h2 className="text-[20px] font-bold text-[#1F2937] flex items-center gap-2">
+                    <GraduationCap className="w-6 h-6 text-[#F97316]" />
+                    <span>Inscription Formateur</span>
+                  </h2>
+                </div>
 
-                        <button
-                          type="button"
-                          onClick={() => setTrainerSubtype('aine')}
-                          className={`p-4 rounded-2xl border-2 text-left transition-all cursor-pointer flex items-start gap-3 ${
-                            trainerSubtype === 'aine'
-                              ? 'bg-orange-600 text-white border-orange-600 shadow-md ring-2 ring-orange-300'
-                              : 'bg-white text-slate-800 border-slate-300 hover:bg-slate-50'
-                          }`}
-                        >
-                          <span className="text-2xl">🤝</span>
-                          <div>
-                            <span className="block text-sm font-black">Aîné de l'AEEMCI</span>
-                            <span className={`text-[11px] block mt-0.5 leading-snug ${trainerSubtype === 'aine' ? 'text-orange-100' : 'text-slate-500'}`}>
-                              Conseil des sages, parrainage, encadrement moral et orientation.
-                            </span>
-                          </div>
-                        </button>
-                      </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Type d'inscription */}
+                  <div>
+                    <label className="block text-[12px] font-medium text-[#374151] mb-1">
+                      type d'inscription <span className="text-[#EF4444]">*</span>
+                    </label>
+                    <select
+                      value={trainerSubtype}
+                      onChange={e => setTrainerSubtype(e.target.value)}
+                      className="w-full h-10 px-3 bg-white border border-[#E5E7EB] rounded-lg text-[16px] text-[#1F2937] focus:outline-none focus:border-[#F97316]"
+                    >
+                      <option value="Formateur Résident">Formateur Résident</option>
+                      <option value="Conférencier Invité">Conférencier Invité</option>
+                      <option value="Encadreur d'Atelier">Encadreur d'Atelier</option>
+                      <option value="Enseignant / Oustaz">Enseignant / Oustaz</option>
+                    </select>
+                  </div>
 
-                      {/* Subject */}
-                      <div>
-                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                          {trainerSubtype === 'aine' 
-                            ? 'Domaine de conseil ou thème d\'intervention *' 
-                            : 'Matière ou Thème du cours à dispenser *'}
-                        </label>
-                        <input
-                          type="text"
-                          required
-                          placeholder={
-                            trainerSubtype === 'aine'
-                              ? "Ex: Orientation académique, Insertion professionnelle, Éthique musulmane"
-                              : "Ex: Fiqh de la prière et purification, Sciences du Hadith, Tajweed"
-                          }
-                          value={teachingSubject}
-                          onChange={e => setTeachingSubject(e.target.value)}
-                          className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  {/* Sous-comité */}
+                  <div>
+                    <label className="block text-[12px] font-medium text-[#374151] mb-1">
+                      sous-comité <span className="text-[#EF4444]">*</span>
+                    </label>
+                    <select
+                      value={subCommittee}
+                      onChange={e => setSubCommittee(e.target.value)}
+                      className="w-full h-10 px-3 bg-white border border-[#E5E7EB] rounded-lg text-[16px] text-[#1F2937] focus:outline-none focus:border-[#F97316]"
+                    >
+                      {config.subCommittees.map(sc => (
+                        <option key={sc.id} value={sc.name}>{sc.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Nom */}
+                  <div>
+                    <label className="block text-[12px] font-medium text-[#374151] mb-1">
+                      nom <span className="text-[#EF4444]">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={nom}
+                      onChange={e => setNom(e.target.value)}
+                      placeholder="ex: CISSE"
+                      className={`w-full h-10 px-3 bg-white border rounded-lg text-[16px] text-[#1F2937] placeholder-[#9CA3AF] focus:outline-none focus:border-[#F97316] ${
+                        errors.nom ? 'border-red-400' : 'border-[#E5E7EB]'
+                      }`}
+                    />
+                    {errors.nom && <p className="text-[12px] text-[#EF4444] mt-1">{errors.nom}</p>}
+                  </div>
+
+                  {/* Prénom */}
+                  <div>
+                    <label className="block text-[12px] font-medium text-[#374151] mb-1">
+                      prénom <span className="text-[#EF4444]">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={prenom}
+                      onChange={e => setPrenom(e.target.value)}
+                      placeholder="ex: Ousmane"
+                      className={`w-full h-10 px-3 bg-white border rounded-lg text-[16px] text-[#1F2937] placeholder-[#9CA3AF] focus:outline-none focus:border-[#F97316] ${
+                        errors.prenom ? 'border-red-400' : 'border-[#E5E7EB]'
+                      }`}
+                    />
+                    {errors.prenom && <p className="text-[12px] text-[#EF4444] mt-1">{errors.prenom}</p>}
+                  </div>
+                </div>
+
+                {/* Contact & Photo (sur deux lignes de hauteur) */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[12px] font-medium text-[#374151] mb-1">
+                      contact <span className="text-[#EF4444]">*</span>
+                    </label>
+                    <input
+                      type="tel"
+                      value={phone}
+                      onChange={e => setPhone(e.target.value)}
+                      placeholder="07 XX XX XX XX"
+                      className={`w-full h-10 px-3 bg-white border rounded-lg text-[16px] text-[#1F2937] placeholder-[#9CA3AF] focus:outline-none focus:border-[#F97316] ${
+                        errors.phone ? 'border-red-400' : 'border-[#E5E7EB]'
+                      }`}
+                    />
+                    {errors.phone && <p className="text-[12px] text-[#EF4444] mt-1">{errors.phone}</p>}
+                  </div>
+
+                  {/* Photo OBLIGATOIRE sur deux lignes de hauteur */}
+                  <div>
+                    <label className="block text-[12px] font-medium text-[#374151] mb-1">
+                      ajouter une photo <span className="text-[#EF4444]">*</span>
+                    </label>
+                    {photoUrl ? (
+                      <div className="flex items-center gap-3 p-3 bg-[#F9FAFB] border border-gray-200 rounded-lg">
+                        <img
+                          src={photoUrl}
+                          alt="Formateur"
+                          className="w-16 h-16 rounded-lg object-cover border border-emerald-500 shrink-0"
                         />
-                      </div>
-
-                      {/* Titre & Disponibilité */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
-                          <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                            Titre / Fonction *
-                          </label>
-                          <input
-                            type="text"
-                            placeholder="Ex: Oustaz, Imam, Cadre, Enseignant..."
-                            value={trainerTitle}
-                            onChange={e => setTrainerTitle(e.target.value)}
-                            className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                            Disponibilité durant la semaine *
-                          </label>
-                          <select
-                            value={trainerAvailability}
-                            onChange={e => setTrainerAvailability(e.target.value)}
-                            className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
-                          >
-                            <option value="Toute la semaine (12 au 18 avril 2027)">Toute la semaine (12 au 18 avril 2027)</option>
-                            <option value="Début de séminaire (Lundi - Mercredi)">Début de séminaire (Lundi - Mercredi)</option>
-                            <option value="Milieu de séminaire (Mercredi - Vendredi)">Milieu de séminaire (Mercredi - Vendredi)</option>
-                            <option value="Week-end de clôture (Vendredi - Dimanche)">Week-end de clôture (Vendredi - Dimanche)</option>
-                          </select>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* ÉTAPE 2 : COORDONNÉES & PRÉSENTATION */}
-                  {wizardStep === 2 && (
-                    <div className="space-y-4 animate-in fade-in duration-200">
-                      <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                        <div>
-                          <h3 className="text-sm font-black text-slate-900 uppercase tracking-wide">
-                            Étape 2 : Identité & Hébergement
-                          </h3>
-                          <p className="text-xs text-slate-500">
-                            Vos coordonnées pour la logistique d'accueil et votre badge officiel.
-                          </p>
-                        </div>
-                        <span className="px-2.5 py-1 bg-orange-100 text-orange-900 text-[11px] font-black rounded-lg">
-                          2 / 3
-                        </span>
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                        <div className="sm:col-span-2">
-                          <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                            Nom & Prénoms complets *
-                          </label>
-                          <input
-                            type="text"
-                            required
-                            placeholder="Ex: Oustaz DIABY Mamadou"
-                            value={fullName}
-                            onChange={e => setFullName(e.target.value)}
-                            className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-orange-500"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                            Numéro Téléphone (Appels) *
-                          </label>
-                          <input
-                            type="tel"
-                            required
-                            placeholder="Ex: 07 48 11 22 33"
-                            value={phone}
-                            onChange={e => setPhone(e.target.value)}
-                            className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-sm font-mono font-bold focus:outline-none focus:ring-2 focus:ring-orange-500"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                            Numéro WhatsApp
-                          </label>
-                          <input
-                            type="tel"
-                            placeholder="Ex: 07 48 11 22 33"
-                            value={whatsapp}
-                            onChange={e => setWhatsapp(e.target.value)}
-                            className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-sm font-mono focus:outline-none focus:ring-2 focus:ring-orange-500"
-                          />
-                        </div>
-
-                        <div className="sm:col-span-2">
-                          <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                            Hébergement sur place à Gagnoa
-                          </label>
-                          <select
-                            value={trainerAccommodation}
-                            onChange={e => setTrainerAccommodation(e.target.value)}
-                            className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
-                          >
-                            <option value="Dortoir Formateurs / Aînés pris en charge">Dortoir Formateurs / Aînés pris en charge par l'AEEMCI</option>
-                            <option value="Hébergement personnel autonome à Gagnoa">Hébergement personnel autonome à Gagnoa</option>
-                          </select>
-                        </div>
-
-                        {/* Photo */}
-                        <div className="sm:col-span-2 p-3 bg-slate-50 border border-slate-200 rounded-2xl flex items-center justify-between gap-3">
-                          <div className="flex items-center gap-3">
-                            <div className="w-12 h-14 bg-white border-2 border-orange-500 rounded-md overflow-hidden flex items-center justify-center shrink-0 shadow-xs">
-                              {photoUrl ? (
-                                <img src={photoUrl} alt="Photo" className="w-full h-full object-cover" />
-                              ) : (
-                                <User className="w-6 h-6 text-slate-400" />
-                              )}
-                            </div>
-                            <div>
-                              <p className="text-xs font-bold text-slate-800">Photo d'Identité pour le Badge Officiel</p>
-                              <p className="text-[11px] text-slate-500">Pour le badge {trainerSubtype === 'aine' ? 'Aîné' : 'Formateur'}.</p>
-                            </div>
-                          </div>
-
-                          <label className="px-3.5 py-2 bg-orange-100 hover:bg-orange-200 text-orange-950 border border-orange-300 rounded-xl text-xs font-bold cursor-pointer transition-all flex items-center gap-1.5 shrink-0">
-                            <Camera className="w-3.5 h-3.5" />
-                            <span>{photoUrl ? 'Changer' : 'Ajouter Photo'}</span>
+                          <label className="text-xs font-semibold text-[#F97316] hover:underline cursor-pointer block">
+                            Modifier la photo
                             <input
                               type="file"
                               accept="image/*"
                               className="hidden"
-                              onChange={e => {
-                                const file = e.target.files?.[0];
-                                if (file) {
-                                  const reader = new FileReader();
-                                  reader.onloadend = () => {
-                                    setPhotoUrl(reader.result as string);
-                                  };
-                                  reader.readAsDataURL(file);
-                                }
-                              }}
+                              onChange={handlePhotoUpload}
                             />
                           </label>
+                          <span className="text-[11px] text-gray-500">Photo enregistrée</span>
                         </div>
                       </div>
-                    </div>
-                  )}
-
-                  {/* ÉTAPE 3 : PRISE EN CHARGE & CONFIRMATION */}
-                  {wizardStep === 3 && (
-                    <div className="space-y-4 animate-in fade-in duration-200">
-                      <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                        <div>
-                          <h3 className="text-sm font-black text-slate-900 uppercase tracking-wide">
-                            Étape 3 : Prise en Charge Intégrale
-                          </h3>
-                          <p className="text-xs text-slate-500">
-                            Hébergement, restauration et accès pédagogique 100% offerts par l'AEEMCI Région du Gôh.
-                          </p>
-                        </div>
-                        <span className="px-2.5 py-1 bg-orange-100 text-orange-900 text-[11px] font-black rounded-lg">
-                          3 / 3
+                    ) : (
+                      <label className="border-2 border-dashed border-gray-300 hover:border-[#F97316] rounded-lg p-5 flex flex-col items-center justify-center cursor-pointer transition-all bg-[#F9FAFB] hover:bg-orange-50/30">
+                        <UploadCloud className="w-6 h-6 text-gray-400 mb-1" />
+                        <span className="text-xs font-semibold text-[#1F2937]">
+                          Cliquez pour ajouter une photo
                         </span>
-                      </div>
+                        <span className="text-[10px] text-gray-400 mt-0.5">
+                          Obligatoire pour le badge Formateur
+                        </span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={handlePhotoUpload}
+                        />
+                      </label>
+                    )}
+                    {errors.photo && <p className="text-[12px] text-[#EF4444] mt-1">{errors.photo}</p>}
+                  </div>
+                </div>
 
-                      <div className="p-5 bg-orange-50/80 rounded-2xl border-2 border-orange-200 space-y-3">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <span className="text-xs font-black uppercase text-orange-950 block">
-                              Participation {trainerSubtype === 'aine' ? 'Aîné de l\'AEEMCI' : 'Formateur Officiel'}
-                            </span>
-                            <span className="text-xs text-orange-700">
-                              Prise en charge intégrale par le Secrétariat Régional du Gôh.
-                            </span>
-                          </div>
-                          <span className="px-4 py-1.5 rounded-xl bg-orange-600 text-white font-black text-sm shadow-sm">
-                            0 FCFA • OFFERT
-                          </span>
-                        </div>
-
-                        <div className="pt-3 border-t border-orange-200 text-xs text-slate-600 space-y-1.5">
-                          <p>✅ Accès prioritaire au réfectoire et aux espaces dédiés</p>
-                          <p>✅ Hébergement formateurs / aînés pris en charge</p>
-                          <p>✅ Badge officiel plastifié et fiche d'inscription générés immédiatement</p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </>
-              )}
-
-              {/* ===================================================================== */}
-              {/* STEPPER NAVIGATION BUTTONS (BACK / NEXT / SUBMIT - ORANGE & BLANC)    */}
-              {/* ===================================================================== */}
-              <div className="pt-4 border-t border-slate-100 flex items-center justify-between gap-3">
-                {wizardStep > 1 ? (
-                  <button
-                    type="button"
-                    onClick={handlePrevStep}
-                    className="px-4 py-2.5 text-xs sm:text-sm font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition-all cursor-pointer flex items-center gap-1.5"
-                  >
-                    <ArrowLeft className="w-4 h-4" />
-                    <span>Retour</span>
-                  </button>
-                ) : (
+                {/* Boutons d'action */}
+                <div className="border-t border-gray-200 pt-4 mt-6 flex items-center justify-between">
                   <button
                     type="button"
                     onClick={onClose}
-                    className="px-4 py-2.5 text-xs sm:text-sm font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition-all cursor-pointer"
-                  >
-                    Annuler
-                  </button>
-                )}
-
-                {wizardStep < getTotalSteps() ? (
-                  <button
-                    type="button"
-                    onClick={handleNextStep}
-                    className="px-6 py-2.5 rounded-xl text-xs sm:text-sm font-black text-white bg-orange-600 hover:bg-orange-500 shadow-md shadow-orange-600/30 transition-all flex items-center gap-2 cursor-pointer transform hover:-translate-y-0.5 active:translate-y-0"
-                  >
-                    <span>Continuer</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => handleFinalSubmit()}
                     disabled={isSubmitting}
-                    className={`px-6 py-3 rounded-2xl text-xs sm:text-sm font-black shadow-lg transition-all flex items-center gap-2 cursor-pointer transform hover:-translate-y-0.5 active:translate-y-0 ${
-                      paymentMethod === 'Wave' && activeTab !== 'formateur'
-                        ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-600/30'
-                        : 'bg-orange-600 hover:bg-orange-500 text-white shadow-orange-600/30'
-                    }`}
+                    className="px-4 py-2 bg-[#F3F4F6] hover:bg-gray-200 text-[#374151] text-xs font-semibold rounded-lg transition-all cursor-pointer flex items-center gap-1.5"
+                  >
+                    <ArrowLeft className="w-3.5 h-3.5" />
+                    <span>‹ Retour</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (validateFormateur()) {
+                        submitRegistration();
+                      }
+                    }}
+                    disabled={isSubmitting}
+                    className="px-6 py-2.5 bg-[#10B981] hover:bg-emerald-600 disabled:opacity-50 text-white text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center gap-2 shadow-sm"
                   >
                     {isSubmitting ? (
-                      <span>Enregistrement en cours...</span>
-                    ) : activeTab === 'formateur' ? (
                       <>
-                        <Check className="w-4 h-4" />
-                        <span>Valider l'Inscription ({trainerSubtype === 'aine' ? 'Aîné' : 'Formateur'})</span>
-                      </>
-                    ) : paymentMethod === 'Wave' ? (
-                      <>
-                        <span className="text-base">🌊</span>
-                        <span>Valider et Débiter {totalAmount.toLocaleString('fr-FR')} FCFA sur Wave</span>
+                        <Loader2 className="w-4 h-4 animate-spin text-white" />
+                        <span>Envoi en cours...</span>
                       </>
                     ) : (
                       <>
                         <Check className="w-4 h-4" />
-                        <span>Confirmer mon Inscription ({totalAmount.toLocaleString('fr-FR')} FCFA)</span>
+                        <span>Soumettre l'inscription</span>
                       </>
                     )}
                   </button>
-                )}
-              </div>
-            </form>
-          )}
-        </div>
-      </div>
-
-      {/* ========================================================================= */}
-      {/* INTERACTIVE WAVE DIRECT DEBIT MODAL OVERLAY                               */}
-      {/* ========================================================================= */}
-      {showWaveModal && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-150">
-          <div className="bg-white rounded-3xl p-6 sm:p-7 max-w-sm w-full text-center shadow-2xl border-2 border-blue-200 relative animate-in zoom-in-95 duration-200">
-            {/* Close Button */}
-            <button
-              onClick={() => setShowWaveModal(false)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 p-1 rounded-full cursor-pointer"
-            >
-              <X className="w-4 h-4" />
-            </button>
-
-            {/* Wave Mascot */}
-            <div className="w-16 h-16 bg-blue-500 text-white rounded-2xl mx-auto flex items-center justify-center text-3xl shadow-lg shadow-blue-500/30 mb-3">
-              🐧
-            </div>
-
-            <div className="inline-block px-3 py-1 bg-blue-100 text-blue-900 rounded-full text-xs font-black uppercase tracking-wider mb-2">
-              Paiement Wave Côte d'Ivoire
-            </div>
-
-            <h3 className="text-lg font-black text-slate-900 leading-tight">
-              Débit Direct sur Compte Wave
-            </h3>
-
-            <p className="text-xs text-slate-600 mt-1">
-              Règlement officiel SERFIG 2027 • Compte Marchand AEEMCI Gôh
-            </p>
-
-            {/* Amount Box */}
-            <div className="my-4 p-4 bg-blue-50/90 rounded-2xl border border-blue-200">
-              <span className="text-xs text-slate-600 block">Montant prélevé :</span>
-              <span className="text-3xl font-black text-blue-700 font-mono tracking-tight block my-0.5">
-                {totalAmount.toLocaleString('fr-FR')} FCFA
-              </span>
-              <span className="text-xs font-bold text-slate-700 block mt-1">
-                Compte débité : <span className="font-mono text-blue-900 font-black">{wavePhoneNumber || phone}</span>
-              </span>
-            </div>
-
-            {waveProcessingState === 'waiting' && (
-              <div className="space-y-4">
-                <p className="text-xs text-slate-600 leading-relaxed">
-                  Une notification de débit Wave a été préparée pour le compte <strong className="text-blue-900">{wavePhoneNumber || phone}</strong>. Confirmez pour débiter instantanément le compte marchand.
-                </p>
-
-                <button
-                  type="button"
-                  onClick={handleConfirmWaveDebit}
-                  className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 active:scale-98 text-white font-black rounded-2xl text-xs sm:text-sm shadow-xl shadow-blue-600/30 transition-all flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  <CheckCircle2 className="w-4 h-4" />
-                  <span>Confirmer le Débit Wave ({totalAmount.toLocaleString('fr-FR')} FCFA)</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setShowWaveModal(false)}
-                  className="text-xs text-slate-500 hover:text-slate-700 underline cursor-pointer"
-                >
-                  Modifier le numéro Wave
-                </button>
-              </div>
-            )}
-
-            {waveProcessingState === 'success' && (
-              <div className="py-4 space-y-3">
-                <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full mx-auto flex items-center justify-center">
-                  <Check className="w-6 h-6 stroke-[3]" />
                 </div>
-                <h4 className="text-base font-black text-emerald-800">
-                  Débit Effectué avec Succès !
-                </h4>
-                <p className="text-xs text-slate-600">
-                  Génération du reçu officiel A4 et du badge plastifié...
-                </p>
               </div>
             )}
-          </div>
-        </div>
-      )}
+
+            {/* ------------------------------------------------------------- */}
+            {/* CAS 3 : FORMULAIRE MEMBRE DE COMMISSION (UNE SEULE PAGE)      */}
+            {/* ------------------------------------------------------------- */}
+            {activeTab === 'commission' && (
+              <div className="bg-white rounded-[12px] shadow-xl border border-gray-100 p-5 sm:p-7 space-y-4">
+                <div className="border-b border-gray-200 pb-3 mb-5">
+                  <h2 className="text-[20px] font-bold text-[#1F2937] flex items-center gap-2">
+                    <Users className="w-6 h-6 text-[#F97316]" />
+                    <span>Inscription Membre de Commission</span>
+                  </h2>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Nom */}
+                  <div>
+                    <label className="block text-[12px] font-medium text-[#374151] mb-1">
+                      nom <span className="text-[#EF4444]">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={nom}
+                      onChange={e => setNom(e.target.value)}
+                      placeholder="ex: DIABY"
+                      className={`w-full h-10 px-3 bg-white border rounded-lg text-[16px] text-[#1F2937] placeholder-[#9CA3AF] focus:outline-none focus:border-[#F97316] ${
+                        errors.nom ? 'border-red-400' : 'border-[#E5E7EB]'
+                      }`}
+                    />
+                    {errors.nom && <p className="text-[12px] text-[#EF4444] mt-1">{errors.nom}</p>}
+                  </div>
+
+                  {/* Prénom */}
+                  <div>
+                    <label className="block text-[12px] font-medium text-[#374151] mb-1">
+                      prénom <span className="text-[#EF4444]">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={prenom}
+                      onChange={e => setPrenom(e.target.value)}
+                      placeholder="ex: Fatima"
+                      className={`w-full h-10 px-3 bg-white border rounded-lg text-[16px] text-[#1F2937] placeholder-[#9CA3AF] focus:outline-none focus:border-[#F97316] ${
+                        errors.prenom ? 'border-red-400' : 'border-[#E5E7EB]'
+                      }`}
+                    />
+                    {errors.prenom && <p className="text-[12px] text-[#EF4444] mt-1">{errors.prenom}</p>}
+                  </div>
+                </div>
+
+                {/* Contact (pleine largeur) */}
+                <div>
+                  <label className="block text-[12px] font-medium text-[#374151] mb-1">
+                    contact <span className="text-[#EF4444]">*</span>
+                  </label>
+                  <input
+                    type="tel"
+                    value={phone}
+                    onChange={e => setPhone(e.target.value)}
+                    placeholder="07 XX XX XX XX"
+                    className={`w-full h-10 px-3 bg-white border rounded-lg text-[16px] text-[#1F2937] placeholder-[#9CA3AF] focus:outline-none focus:border-[#F97316] ${
+                      errors.phone ? 'border-red-400' : 'border-[#E5E7EB]'
+                    }`}
+                  />
+                  {errors.phone && <p className="text-[12px] text-[#EF4444] mt-1">{errors.phone}</p>}
+                </div>
+
+                {/* Sous-comité & Commission */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[12px] font-medium text-[#374151] mb-1">
+                      sous-comité <span className="text-[#EF4444]">*</span>
+                    </label>
+                    <select
+                      value={subCommittee}
+                      onChange={e => setSubCommittee(e.target.value)}
+                      className="w-full h-10 px-3 bg-white border border-[#E5E7EB] rounded-lg text-[16px] text-[#1F2937] focus:outline-none focus:border-[#F97316]"
+                    >
+                      {config.subCommittees.map(sc => (
+                        <option key={sc.id} value={sc.name}>{sc.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[12px] font-medium text-[#374151] mb-1">
+                      commission <span className="text-[#EF4444]">*</span>
+                    </label>
+                    <select
+                      value={commissionName}
+                      onChange={e => setCommissionName(e.target.value)}
+                      className="w-full h-10 px-3 bg-white border border-[#E5E7EB] rounded-lg text-[16px] text-[#1F2937] focus:outline-none focus:border-[#F97316]"
+                    >
+                      {COMMISSIONS_LIST.map(c => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Ajouter une photo (obligatoire) */}
+                <div>
+                  <label className="block text-[12px] font-medium text-[#374151] mb-1">
+                    ajouter une photo <span className="text-[#EF4444]">*</span>
+                  </label>
+                  {photoUrl ? (
+                    <div className="flex items-center gap-3 p-3 bg-[#F9FAFB] border border-gray-200 rounded-lg">
+                      <img
+                        src={photoUrl}
+                        alt="Membre commission"
+                        className="w-16 h-16 rounded-lg object-cover border border-emerald-500 shrink-0"
+                      />
+                      <div>
+                        <label className="text-xs font-semibold text-[#F97316] hover:underline cursor-pointer block">
+                          Modifier la photo
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={handlePhotoUpload}
+                          />
+                        </label>
+                        <span className="text-[11px] text-gray-500">Photo enregistrée</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <label className="border-2 border-dashed border-gray-300 hover:border-[#F97316] rounded-lg p-5 flex flex-col items-center justify-center cursor-pointer transition-all bg-[#F9FAFB] hover:bg-orange-50/30">
+                      <UploadCloud className="w-6 h-6 text-gray-400 mb-1" />
+                      <span className="text-xs font-semibold text-[#1F2937]">
+                        Cliquez pour ajouter une photo
+                      </span>
+                      <span className="text-[10px] text-gray-400 mt-0.5">
+                        Obligatoire pour le badge officiel Commission
+                      </span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handlePhotoUpload}
+                      />
+                    </label>
+                  )}
+                  {errors.photo && <p className="text-[12px] text-[#EF4444] mt-1">{errors.photo}</p>}
+                </div>
+
+                {/* Boîte Polo (charte) */}
+                <div className="bg-[#F9FAFB] border border-[#E5E7EB] rounded-lg p-4 space-y-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={wantsPolo}
+                        onChange={e => setWantsPolo(e.target.checked)}
+                        className="w-4 h-4 text-[#F97316] rounded border-gray-300 focus:ring-[#F97316]"
+                      />
+                      <span className="text-sm font-semibold text-[#1F2937]">
+                        Je souhaite commander un polo
+                      </span>
+                    </label>
+                    <span className="text-sm font-bold text-[#F97316] shrink-0">
+                      + {formatFCFA(config.poloPrice || 2500)}
+                    </span>
+                  </div>
+                  <p className="text-[12px] text-gray-500">
+                    Polo officiel SERFIG 2027 de qualité supérieure avec logo brodé.
+                  </p>
+
+                  {wantsPolo && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-gray-200">
+                      <div>
+                        <label className="block text-[12px] font-medium text-[#374151] mb-1">taille</label>
+                        <select
+                          value={poloSize}
+                          onChange={e => setPoloSize(e.target.value as any)}
+                          className="w-full h-10 px-3 bg-white border border-[#E5E7EB] rounded-lg text-[16px] text-[#1F2937] focus:outline-none focus:border-[#F97316]"
+                        >
+                          <option value="S">S</option>
+                          <option value="M">M</option>
+                          <option value="L">L</option>
+                          <option value="XL">XL</option>
+                          <option value="2XL">2XL</option>
+                          <option value="3XL">3XL</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-[12px] font-medium text-[#374151] mb-1">couleur</label>
+                        <select
+                          value={poloColor}
+                          onChange={e => setPoloColor(e.target.value)}
+                          className="w-full h-10 px-3 bg-white border border-[#E5E7EB] rounded-lg text-[16px] text-[#1F2937] focus:outline-none focus:border-[#F97316]"
+                        >
+                          <option value="Vert Forêt AEEMCI">Vert Forêt AEEMCI</option>
+                          <option value="Blanc Cérémonie">Blanc Cérémonie</option>
+                          <option value="Noir Prestige">Noir Prestige</option>
+                        </select>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Carte récapitulatif */}
+                <div className="bg-[#F9FAFB] border border-[#E5E7EB] rounded-lg p-4 space-y-2">
+                  <div className="flex justify-between text-xs text-gray-600">
+                    <span>Frais d'inscription (Commission)</span>
+                    <span className="font-semibold text-gray-900">{formatFCFA(participantFee)}</span>
+                  </div>
+                  {wantsPolo && (
+                    <div className="flex justify-between text-xs text-gray-600">
+                      <span>Polo SERFIG 2027</span>
+                      <span className="font-semibold text-gray-900">{formatFCFA(poloFee)}</span>
+                    </div>
+                  )}
+                  <div className="border-t border-gray-200 pt-2 flex items-baseline justify-between">
+                    <span className="text-xs font-bold text-gray-700 uppercase">Total à payer</span>
+                    <span className="text-[22px] font-bold text-[#F97316]">
+                      {formatFCFA(totalToPay)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Numéro Wave */}
+                <div>
+                  <label className="block text-[12px] font-medium text-[#374151] mb-1">
+                    numéro wave <span className="text-[#EF4444]">*</span>
+                  </label>
+                  <input
+                    type="tel"
+                    value={wavePhoneNumber}
+                    onChange={e => setWavePhoneNumber(e.target.value)}
+                    placeholder="07 XX XX XX XX"
+                    className={`w-full h-10 px-3 bg-white border rounded-lg text-[16px] text-[#1F2937] placeholder-[#9CA3AF] focus:outline-none focus:border-[#F97316] ${
+                      errors.wavePhoneNumber ? 'border-red-400' : 'border-[#E5E7EB]'
+                    }`}
+                  />
+                  <p className="text-[11px] text-gray-500 mt-1">
+                    Le paiement sera effectué via Wave Money.
+                  </p>
+                  {errors.wavePhoneNumber && (
+                    <p className="text-[12px] text-[#EF4444] mt-1">{errors.wavePhoneNumber}</p>
+                  )}
+                </div>
+
+                {/* Boutons d'action */}
+                <div className="border-t border-gray-200 pt-4 mt-6 flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    disabled={isSubmitting}
+                    className="px-4 py-2 bg-[#F3F4F6] hover:bg-gray-200 text-[#374151] text-xs font-semibold rounded-lg transition-all cursor-pointer flex items-center gap-1.5"
+                  >
+                    <ArrowLeft className="w-3.5 h-3.5" />
+                    <span>‹ Retour</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (validateCommission()) {
+                        submitRegistration();
+                      }
+                    }}
+                    disabled={isSubmitting}
+                    className="px-6 py-2.5 bg-[#10B981] hover:bg-emerald-600 disabled:opacity-50 text-white text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center gap-2 shadow-sm"
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin text-white" />
+                        <span>Envoi en cours...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Check className="w-4 h-4" />
+                        <span>Soumettre l'inscription</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
+      </main>
     </div>
   );
 };

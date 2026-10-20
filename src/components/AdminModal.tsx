@@ -14,7 +14,7 @@ import {
   Download, Search, Settings, QrCode, Trash2, 
   DollarSign, CheckSquare, RefreshCw, Plus, Shirt, Check, Award,
   FileText, BookOpen, Utensils, LogOut, AlertCircle,
-  Mail, Eye, EyeOff, AlertTriangle
+  Mail, Eye, EyeOff, AlertTriangle, HeartPulse
 } from 'lucide-react';
 
 interface AdminModalProps {
@@ -43,7 +43,10 @@ function mapDbRowToParticipant(row: any): Participant {
     schoolLevel: row.school_level || row.schoolLevel || undefined,
     schoolName: row.school_name || row.schoolName || undefined,
     birthDate: row.birth_date || row.birthDate || undefined,
+    parentName: row.parent_name || row.parentName || undefined,
     parentContact: row.parent_contact || row.parentContact || undefined,
+    hasMedicalCondition: Boolean(row.has_medical_condition ?? row.hasMedicalCondition ?? false),
+    medicalDetails: row.medical_details || row.medicalDetails || undefined,
     dormitory: row.dormitory || undefined,
     transportMode: row.transport_mode || row.transportMode || undefined,
     photoUrl: row.photo_path || row.photo_url || row.photoUrl || undefined,
@@ -236,13 +239,20 @@ export const AdminModal: React.FC<AdminModalProps> = ({
       });
 
       if (signInError || !authData.session) {
-        setAuthError('Identifiants incorrects');
+        const errorMsg = (signInError?.message || '').toLowerCase();
+        if (errorMsg.includes('confirm') || errorMsg.includes('verification')) {
+          setAuthError("L'adresse e-mail n'a pas encore été confirmée dans Supabase. Dans le tableau de bord Supabase > Authentication > Users, cliquez sur '...' à côté de l'e-mail puis sur 'Confirm user'.");
+        } else if (errorMsg.includes('invalid') || errorMsg.includes('credentials') || errorMsg.includes('grant')) {
+          setAuthError('Identifiants incorrects (vérifiez votre e-mail et votre mot de passe).');
+        } else {
+          setAuthError(signInError?.message || 'Identifiants incorrects');
+        }
         setIsAuthenticating(false);
         return;
       }
 
-      const userEmail = authData.session.user.email?.toLowerCase().trim() || cleanEmail;
-      const isAuthorizedAdmin = userEmail === 'aeemcisrgoh@gmail.com' || userEmail === 'djatraore455@gmail.com';
+      const userEmail = (authData.session.user.email || cleanEmail).toLowerCase().trim();
+      const isOfficialAdmin = userEmail === 'aeemcisrgoh@gmail.com' || userEmail === 'djatraore455@gmail.com';
 
       // Vérification du statut admin via RPC am_i_admin
       let isAdmin = false;
@@ -258,19 +268,19 @@ export const AdminModal: React.FC<AdminModalProps> = ({
       }
 
       // Si am_i_admin renvoie true OU si l'adresse e-mail authentifiée est l'admin officiel
-      if (isAdmin || isAuthorizedAdmin) {
+      if (isAdmin || isOfficialAdmin) {
         setIsAuthenticated(true);
         setPassword('');
         await loadParticipantsFromSupabase();
       } else {
         await supabase.auth.signOut();
-        setAuthError('Accès réservé aux administrateurs autorisés');
+        setAuthError(`Accès refusé : l'e-mail ${userEmail} n'est pas habilité comme administrateur.`);
         setIsAuthenticating(false);
         return;
       }
     } catch (err: any) {
       console.error('Erreur connexion:', err);
-      setAuthError('Identifiants incorrects');
+      setAuthError(err?.message || 'Identifiants incorrects');
     } finally {
       setIsAuthenticating(false);
     }
@@ -876,6 +886,28 @@ export const AdminModal: React.FC<AdminModalProps> = ({
 
             {/* Main Tab Views */}
             <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-slate-100/60">
+              {supabaseTableError && (
+                <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 flex items-start justify-between gap-3">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
+                    <div>
+                      <p className="font-bold">Avertissement synchronisation Supabase :</p>
+                      <p className="mt-0.5 text-slate-700 font-mono text-[11px]">{supabaseTableError}</p>
+                      <p className="mt-1 text-[11px] text-amber-700">
+                        Vérifiez que la table &laquo; participants &raquo; a été créée dans Supabase et que la politique RLS autorise la lecture.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setSupabaseTableError(null)}
+                    className="text-amber-600 hover:text-amber-900 text-base font-bold px-1"
+                    title="Fermer"
+                  >
+                    &times;
+                  </button>
+                </div>
+              )}
+
               {/* TAB 1: DASHBOARD STATS */}
               {activeTab === 'dashboard' && (
                 <div className="space-y-6">
@@ -1079,9 +1111,20 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                                   <span className="font-bold text-slate-900 text-sm block">
                                     {p.fullName}
                                   </span>
-                                  <span className="text-[11px] text-slate-500">
+                                  <span className="text-[11px] text-slate-500 block">
                                     {p.gender === 'homme' ? '🧔 Frère' : '🧕 Sœur'} • {calculateAge(p.birthDate) !== null ? `${calculateAge(p.birthDate)} ans` : '—'} • {p.phone || '—'}
                                   </span>
+                                  {p.parentName && (
+                                    <span className="text-[10px] text-slate-500 block mt-0.5">
+                                      Tuteur : {p.parentName} {p.parentContact ? `(${p.parentContact})` : ''}
+                                    </span>
+                                  )}
+                                  {p.hasMedicalCondition && (
+                                    <span className="inline-flex items-center gap-1 mt-1 px-1.5 py-0.5 rounded bg-rose-50 text-rose-700 text-[10px] font-semibold border border-rose-200" title={p.medicalDetails}>
+                                      <HeartPulse className="w-3 h-3 text-rose-600 shrink-0" />
+                                      <span className="truncate max-w-[200px]">Santé : {p.medicalDetails || 'Condition signalée'}</span>
+                                    </span>
+                                  )}
                                 </div>
                               </td>
 
@@ -1690,7 +1733,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                         <input
                           type="text"
                           value={editableConfig.logoUrl || ''}
-                          placeholder="/src/assets/images/aeemci_official_logo_1792254182659.jpg"
+                          placeholder="/assets/aistudio/1771719145696_b78691d8.png"
                           onChange={e => setEditableConfig({ ...editableConfig, logoUrl: e.target.value })}
                           className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-mono"
                         />

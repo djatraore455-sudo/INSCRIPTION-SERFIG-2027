@@ -9,7 +9,7 @@ interface AeemciLogoProps {
 export const AeemciLogo: React.FC<AeemciLogoProps> = ({ 
   className = '', 
   size = 'md',
-  src = '/src/assets/images/aeemci_official_logo_1792254182659.jpg'
+  src = '/assets/aistudio/1771719145696_b78691d8.png'
 }) => {
   const sizeMap = {
     sm: 'w-10 h-10',

@@ -1,5 +1,6 @@
 import { SeminarConfig, Participant, DaySchedule, Donation } from '../types';
 import { SERFIG_2027_CONFIG, SEFIHA_2026_CONFIG, INITIAL_PARTICIPANTS, INITIAL_SCHEDULE } from '../data/initialData';
+import { supabase } from '../lib/supabase';
 
 const CONFIG_KEY = 'aeemci_seminar_active_config_v1';
 const PARTICIPANTS_KEY = 'aeemci_seminar_participants_v1';
@@ -11,11 +12,14 @@ export function getActiveSeminarConfig(): SeminarConfig {
     const raw = localStorage.getItem(CONFIG_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      // Migrate away if previous cache had old Gontougo region or previous logo or old prices
+      // Migrate away if previous cache had old dates, old Gontougo region, or old prices
       if (
         (parsed.region && parsed.region.toLowerCase().includes('gontougo')) ||
         parsed.poloPrice !== 2500 ||
-        !parsed.subCommittees?.some((s: any) => s.id === 'sc-tonla')
+        parsed.startDate !== '2027-04-17' ||
+        !parsed.subCommittees?.some((s: any) => s.id === 'sc-tonla') ||
+        parsed.contacts?.email !== 'aeemcisrgoh@gmail.com' ||
+        parsed.logoUrl !== '/assets/aistudio/1771719145696_b78691d8.png'
       ) {
         saveSeminarConfig(SERFIG_2027_CONFIG);
         return SERFIG_2027_CONFIG;
@@ -103,7 +107,10 @@ export function addParticipant(participantData: Omit<Participant, 'id' | 'matric
     dormitory: participantData.dormitory || undefined,
     transportMode: participantData.transportMode || undefined,
     birthDate: participantData.birthDate || undefined,
+    parentName: participantData.parentName || undefined,
     parentContact: participantData.parentContact || undefined,
+    hasMedicalCondition: participantData.hasMedicalCondition ?? false,
+    medicalDetails: participantData.medicalDetails || undefined,
     checkedIn: false,
     courseAttendance: participantData.courseAttendance || {
       validated: false
@@ -118,6 +125,60 @@ export function addParticipant(participantData: Omit<Participant, 'id' | 'matric
 
   const updated = [newParticipant, ...participants];
   saveParticipants(updated);
+
+  // Sync to Supabase participants table in background
+  try {
+    const dbPayload = {
+      matricule: newParticipant.matricule,
+      participant_type: newParticipant.type,
+      full_name: newParticipant.fullName,
+      gender: newParticipant.gender,
+      phone: newParticipant.phone,
+      whatsapp: newParticipant.whatsapp,
+      email: newParticipant.email || null,
+      sub_committee: newParticipant.subCommittee,
+      school_level: newParticipant.schoolLevel || null,
+      birth_date: newParticipant.birthDate || null,
+      parent_name: newParticipant.parentName || null,
+      parent_contact: newParticipant.parentContact || null,
+      has_medical_condition: newParticipant.hasMedicalCondition ?? false,
+      medical_details: newParticipant.hasMedicalCondition ? (newParticipant.medicalDetails || null) : null,
+      photo_path: newParticipant.photoUrl || null,
+      has_polo: newParticipant.hasPolo ?? false,
+      polo_size: newParticipant.poloSize || null,
+      polo_color: newParticipant.poloColor || null,
+      clothing_type: newParticipant.clothingType || 'aucun',
+      clothing_fee: newParticipant.clothingFee || 0,
+      registration_fee: newParticipant.registrationFee || 0,
+      polo_fee: newParticipant.poloFee || 0,
+      total_fee: newParticipant.totalFee || 0,
+      payment_status: newParticipant.paymentStatus || 'en_attente',
+      payment_method: newParticipant.paymentMethod || 'Wave',
+      payment_reference: newParticipant.paymentReference || null,
+      commission: newParticipant.commission || null,
+      trainer_subtype: newParticipant.trainerSubtype || null,
+      wave_phone_number: newParticipant.wavePhoneNumber || null,
+      checked_in: false,
+      registered_at: newParticipant.registeredAt
+    };
+
+    supabase
+      .from('participants')
+      .insert([dbPayload])
+      .then(
+        ({ error }: any) => {
+          if (error) {
+            console.warn('Note insertion Supabase participants (sauvegardé en local) :', error.message);
+          }
+        },
+        (err: any) => {
+          console.warn('Erreur réseau sync Supabase :', err);
+        }
+      );
+  } catch (err) {
+    console.warn('Sync Supabase non bloquante :', err);
+  }
+
   return newParticipant;
 }
 
@@ -264,11 +325,25 @@ export function deleteParticipant(id: string): Participant[] {
   return updated;
 }
 
+export function saveSchedule(schedule: DaySchedule[]): void {
+  try {
+    localStorage.setItem(SCHEDULE_KEY, JSON.stringify(schedule));
+  } catch (err) {
+    console.error('Failed to save schedule', err);
+  }
+}
+
 export function getSchedule(): DaySchedule[] {
   try {
     const raw = localStorage.getItem(SCHEDULE_KEY);
     if (raw) {
-      return JSON.parse(raw);
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length === 6 && parsed[0]?.date === '2027-04-17') {
+        return parsed;
+      }
+      // Migrate old cached schedule
+      saveSchedule(INITIAL_SCHEDULE);
+      return INITIAL_SCHEDULE;
     }
   } catch (err) {
     console.error('Failed to load schedule', err);

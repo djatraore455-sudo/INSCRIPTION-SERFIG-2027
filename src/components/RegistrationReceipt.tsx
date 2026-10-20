@@ -452,10 +452,27 @@ export const RegistrationReceipt: React.FC<RegistrationReceiptProps> = ({
                   </span>
                 </div>
 
+                {participant.parentName && (
+                  <div className="flex items-baseline justify-between border-b border-slate-100 pb-1">
+                    <span className="text-slate-600 font-medium text-xs">Nom Parent / Tuteur :</span>
+                    <span className="font-bold text-slate-900">{participant.parentName}</span>
+                  </div>
+                )}
+
                 <div className="flex items-baseline justify-between border-b border-slate-100 pb-1">
                   <span className="text-slate-600 font-medium text-xs">Contact Parent / Tuteur :</span>
                   <span className="font-bold text-slate-900 font-mono">{participant.parentContact || '—'}</span>
                 </div>
+
+                {participant.hasMedicalCondition && (
+                  <div className="sm:col-span-2 flex items-baseline justify-between border-b border-slate-100 pb-1 bg-red-50/70 px-2.5 py-1 rounded text-red-900">
+                    <span className="font-bold text-xs flex items-center gap-1.5">
+                      <AlertTriangle className="w-3.5 h-3.5 text-red-600" />
+                      <span>Condition Médicale / Traitement :</span>
+                    </span>
+                    <span className="font-bold text-xs text-red-800">{participant.medicalDetails || 'Information signalée'}</span>
+                  </div>
+                )}
 
                 {/* Specific field for Formateur */}
                 {participant.type === 'formateur' && participant.teachingSubject && (

@@ -70,11 +70,11 @@ export const Hero: React.FC<HeroProps> = ({
           <div className="flex items-center justify-center gap-3">
             <Calendar className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
             <span className="text-2xl sm:text-4xl font-black tracking-wide text-white">
-              12 - 18 AVRIL 2027
+              17 - 22 AVRIL 2027
             </span>
           </div>
           <p className="text-xs sm:text-sm text-white/90 font-medium mt-1">
-            7 jours de formation intensive • Gagnoa
+            {config.durationDays} jours de formation intensive • {config.location.city}
           </p>
         </div>
 
@@ -110,14 +110,14 @@ export const Hero: React.FC<HeroProps> = ({
             </div>
           </div>
 
-          {/* Card 3: 7 jours intensifs */}
+          {/* Card 3: 6 jours intensifs */}
           <div className="p-3.5 sm:p-4 rounded-2xl bg-white/15 backdrop-blur-md border border-white/20 shadow-md text-left flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
               <Clock className="w-5 h-5 text-white" />
             </div>
             <div>
               <span className="text-lg sm:text-2xl font-black text-white block leading-tight">
-                7
+                {config.durationDays}
               </span>
               <span className="text-[10px] sm:text-xs text-white/80 line-clamp-1">
                 Jours intensifs

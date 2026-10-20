@@ -114,7 +114,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               className="p-3 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-left font-bold text-xs text-slate-800 transition-all cursor-pointer flex items-center gap-2"
             >
               <Calendar className="w-4 h-4 text-slate-600" />
-              <span>Programme des 7 Jours (Gagnoa)</span>
+              <span>Programme des 6 Jours (Gagnoa)</span>
             </a>
 
             <button

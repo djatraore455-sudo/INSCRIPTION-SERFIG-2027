@@ -10,12 +10,12 @@ export const SERFIG_2027_CONFIG: SeminarConfig = {
   region: 'Gôh',
   organizer: "Association des Élèves et Étudiants Musulmans de Côte d'Ivoire (AEEMCI) - Secrétariat Régional du Gôh",
   motto: 'Science - Foi - Action',
-  logoUrl: '/src/assets/images/aeemci_official_logo_1792254182659.jpg',
+  logoUrl: '/assets/aistudio/1771719145696_b78691d8.png',
   bannerUrl: '/src/assets/images/serfig_goh_banner_1792249086757.jpg',
-  startDate: '2027-04-12',
-  endDate: '2027-04-18',
-  displayDates: 'Du 12 au 18 Avril 2027',
-  durationDays: 7,
+  startDate: '2027-04-17',
+  endDate: '2027-04-22',
+  displayDates: 'Du 17 au 22 Avril 2027',
+  durationDays: 6,
   location: {
     city: 'Gagnoa',
     venue: 'Lycée Moderne 1 & 2 de Gagnoa',
@@ -29,7 +29,7 @@ export const SERFIG_2027_CONFIG: SeminarConfig = {
     verseReference: 'Sourate Al-Mujadilah (58), Verset 11'
   },
   subCommittees: [
-    { id: 'sc-gagnoa', name: 'Sous-Comité Gagnoa', fee: 2000, contactPerson: 'Oustaz Traoré', contactPhone: '+225 07 48 12 34 56' },
+    { id: 'sc-gagnoa', name: 'Sous-Comité Gagnoa', fee: 2000, isPopular: true, contactPerson: 'Oustaz Traoré', contactPhone: '+225 07 48 12 34 56' },
     { id: 'sc-guiberoua', name: 'Sous-Comité Guibéroua', fee: 2000, contactPerson: 'Frère Cissé', contactPhone: '+225 07 09 88 77 66' },
     { id: 'sc-oume', name: 'Sous-Comité Oumé', fee: 2000, contactPerson: 'Frère Coulibaly', contactPhone: '+225 05 64 22 11 00' },
     { id: 'sc-bayota', name: 'Sous-Comité Bayota', fee: 2000, contactPerson: 'Frère Sylla', contactPhone: '+225 01 02 03 04 05' },
@@ -43,17 +43,19 @@ export const SERFIG_2027_CONFIG: SeminarConfig = {
   tshirtPrice: 2000,
   commissionFee: 2000,
   contacts: {
-    primaryPhone: '+225 07 08 45 12 30',
-    secondaryPhone: '+225 05 64 03 55 95',
-    whatsapp: '+225 07 08 45 12 30',
-    email: 'contact@aeemci-goh.org',
-    address: 'Siège Régional AEEMCI, Quartier Dioulabougou / Sokoura, Gagnoa'
+    primaryPhone: '(+225) 0788609677',
+    secondaryPhone: '(+225) 0141273083',
+    phone3: '(+225) 0574613512',
+    whatsapp: '0564843912',
+    emergencyPhone: '0564843912',
+    email: 'aeemcisrgoh@gmail.com',
+    address: 'Gagnoa carrefour Orange Money'
   },
   paymentNumbers: {
-    wave: '+225 07 08 45 12 30',
-    orangeMoney: '+225 07 08 45 12 30',
-    mtnMoMo: '+225 05 64 03 55 95',
-    moovMoney: '+225 01 40 12 34 56',
+    wave: '(+225) 0788609677',
+    orangeMoney: '(+225) 0788609677',
+    mtnMoMo: '(+225) 0564843912',
+    moovMoney: '(+225) 0141273083',
     recipientName: 'AEEMCI Gôh / SERFIG'
   },
   stats: {
@@ -72,7 +74,7 @@ export const SEFIHA_2026_CONFIG: SeminarConfig = {
   region: 'Hambol',
   organizer: "Association des Élèves et Étudiants Musulmans de Côte d'Ivoire (AEEMCI) - Secrétariat Régional du Hambol",
   motto: 'Science - Foi - Action',
-  logoUrl: '/src/assets/images/aeemci_official_logo_1792254182659.jpg',
+  logoUrl: '/assets/aistudio/1771719145696_b78691d8.png',
   startDate: '2026-04-02',
   endDate: '2026-04-08',
   displayDates: 'Du 02 au 08 Avril 2026',
@@ -90,12 +92,13 @@ export const SEFIHA_2026_CONFIG: SeminarConfig = {
     verseReference: 'Sourate Al-Mujadilah (58), Verset 11'
   },
   subCommittees: [
-    { id: 'sc-katiola', name: 'Sous-Comité Katiola', fee: 1000, contactPerson: 'Frère Coulibaly', contactPhone: '+225 05 64 03 55 95' },
-    { id: 'sc-niakara', name: 'Sous-Comité Niakara', fee: 1000, contactPerson: 'Frère Koné', contactPhone: '+225 05 05 75 57 41' },
-    { id: 'sc-dabakala', name: 'Sous-Comité Dabakala', fee: 1000, contactPerson: 'Frère Ouattara', contactPhone: '+225 07 47 00 11 22' },
-    { id: 'sc-tafire', name: 'Sous-Comité Tafiré', fee: 1000, contactPerson: 'Frère Touré', contactPhone: '+225 05 12 34 56 78' },
-    { id: 'sc-tortiya', name: 'Sous-Comité Tortiya', fee: 1000, contactPerson: 'Frère Bamba', contactPhone: '+225 07 88 99 00 11' },
-    { id: 'sc-autres', name: 'Extérieur Hambol', fee: 1500, contactPerson: 'Secrétariat Hambol', contactPhone: '+225 05 64 03 55 95' }
+    { id: 'sc-satama', name: 'Satama', fee: 1000, contactPerson: 'Secrétariat Satama', contactPhone: '+225 07 00 00 01' },
+    { id: 'sc-foumbolo', name: 'Foumbolo', fee: 1500, contactPerson: 'Secrétariat Foumbolo', contactPhone: '+225 07 00 00 02' },
+    { id: 'sc-katiola', name: 'Katiola', fee: 2000, isPopular: true, contactPerson: 'Frère Coulibaly', contactPhone: '+225 05 64 03 55 95' },
+    { id: 'sc-tafire', name: 'Tafiré', fee: 2000, contactPerson: 'Frère Touré', contactPhone: '+225 05 12 34 56 78' },
+    { id: 'sc-dabakala', name: 'Dabakala', fee: 2000, contactPerson: 'Frère Ouattara', contactPhone: '+225 07 47 00 11 22' },
+    { id: 'sc-boniere', name: 'Bonieré', fee: 2000, contactPerson: 'Secrétariat Bonieré', contactPhone: '+225 07 00 00 03' },
+    { id: 'sc-niakara', name: 'Niakara', fee: 3000, contactPerson: 'Frère Koné', contactPhone: '+225 05 05 75 57 41' }
   ],
   poloPrice: 2000,
   tshirtPrice: 2000,
@@ -125,8 +128,8 @@ export const INITIAL_PARTICIPANTS: Participant[] = [];
 export const INITIAL_SCHEDULE: DaySchedule[] = [
   {
     dayNumber: 1,
-    dayName: 'Lundi 12 Avril 2027',
-    date: '2027-04-12',
+    dayName: 'Samedi 17 Avril 2027',
+    date: '2027-04-17',
     theme: 'Accueil, Installation & Cérémonie d\'Ouverture',
     items: [
       { time: '08h00 - 12h00', title: 'Accueil des délégations et pointage des séminaristes', category: 'ceremonie', location: 'Hall Principal - Lycée Moderne Gagnoa', description: 'Vérification des inscriptions, remise des kits, badges et attribution des dortoirs' },
@@ -138,8 +141,8 @@ export const INITIAL_SCHEDULE: DaySchedule[] = [
   },
   {
     dayNumber: 2,
-    dayName: 'Mardi 13 Avril 2027',
-    date: '2027-04-13',
+    dayName: 'Dimanche 18 Avril 2027',
+    date: '2027-04-18',
     theme: 'Fondements de la Foi (Tawhid) & Pratique de la Prière',
     items: [
       { time: '04h30 - 05h30', title: 'Réveil, Tahajjud & Prière de Fajr en assemblée', category: 'priere', location: 'Mosquée' },
@@ -156,8 +159,8 @@ export const INITIAL_SCHEDULE: DaySchedule[] = [
   },
   {
     dayNumber: 3,
-    dayName: 'Mercredi 14 Avril 2027',
-    date: '2027-04-14',
+    dayName: 'Lundi 19 Avril 2027',
+    date: '2027-04-19',
     theme: 'Excellence Académique & Méthodologie d\'Étude',
     items: [
       { time: '04h30 - 06h00', title: 'Fajr & Tafsir d\'une sélection de versets inspirants', category: 'priere' },
@@ -170,8 +173,8 @@ export const INITIAL_SCHEDULE: DaySchedule[] = [
   },
   {
     dayNumber: 4,
-    dayName: 'Jeudi 15 Avril 2027',
-    date: '2027-04-15',
+    dayName: 'Mardi 20 Avril 2027',
+    date: '2027-04-20',
     theme: 'Leadership Musulman & Engagement Communautaire',
     items: [
       { time: '04h30 - 06h00', title: 'Prière de Fajr & Exhortation sur la fraternité en Allah', category: 'priere' },
@@ -184,33 +187,21 @@ export const INITIAL_SCHEDULE: DaySchedule[] = [
   },
   {
     dayNumber: 5,
-    dayName: 'Vendredi 16 Avril 2027',
-    date: '2027-04-16',
-    theme: 'Jour Béni du Vendredi & Éthique Islamique',
+    dayName: 'Mercredi 21 Avril 2027',
+    date: '2027-04-21',
+    theme: 'Éthique Islamique, Évaluations & Tournois Fraternels',
     items: [
-      { time: '04h30 - 06h00', title: 'Fajr & Récitation de la Sourate Al-Kahf', category: 'priere' },
-      { time: '08h30 - 11h00', title: 'Module 5 : Fiqh des Transactions (Muamalat) et Éthique financière en Islam', category: 'cours' },
-      { time: '12h00 - 14h30', title: 'Grande Prière de Joumou\'ah en congrégation & Khoutbah solennelle', category: 'priere', location: 'Grande Mosquée de Gagnoa' },
-      { time: '15h30 - 17h30', title: 'Atelier Santé & Premiers Secours avec la Croix-Rouge et commission santé', category: 'atelier' },
-      { time: '20h30 - 22h30', title: 'Soirée de louanges (Anashid spirituels) et témoignages d\'anciens de l\'AEEMCI', category: 'ceremonie' }
+      { time: '04h30 - 06h00', title: 'Fajr & Douas collectives pour la paix en Côte d\'Ivoire', category: 'priere' },
+      { time: '07h00 - 08h00', title: 'Petit-déjeuner', category: 'repas' },
+      { time: '08h30 - 11h30', title: 'Évaluation générale des connaissances acquises (Test de validation)', category: 'atelier' },
+      { time: '15h00 - 18h00', title: 'Grande finale du tournoi sportif de la Fraternité SERFIG Gôh', category: 'sport', location: 'Terrain de sport Lycée' },
+      { time: '20h30 - 23h00', title: 'Grande veillée de gala : Remise des prix d\'excellence, sketchs pédagogiques et anashid', category: 'ceremonie' }
     ]
   },
   {
     dayNumber: 6,
-    dayName: 'Samedi 17 Avril 2027',
-    date: '2027-04-17',
-    theme: 'Consolidation, Évaluations & Tournois Sportifs',
-    items: [
-      { time: '04h30 - 06h00', title: 'Fajr & Douas collectives pour la paix en Côte d\'Ivoire', category: 'priere' },
-      { time: '08h30 - 11h30', title: 'Évaluation des connaissances acquises (Test de validation)', category: 'atelier' },
-      { time: '15h00 - 18h00', title: 'Grande finale du tournoi de football de la Fraternité SERFIG Gôh', category: 'sport', location: 'Terrain de sport Lycée' },
-      { time: '20h30 - 23h00', title: 'Grande veillée de gala : Remise des prix d\'excellence et sketchs pédagogiques', category: 'ceremonie' }
-    ]
-  },
-  {
-    dayNumber: 7,
-    dayName: 'Dimanche 18 Avril 2027',
-    date: '2027-04-18',
+    dayName: 'Jeudi 22 Avril 2027',
+    date: '2027-04-22',
     theme: 'Clôture Solennelle, Attestations & Départs',
     items: [
       { time: '04h30 - 06h00', title: 'Fajr d\'adieu & Rappel final de persévérance', category: 'priere' },
@@ -248,7 +239,7 @@ export const SEMINAR_GUIDE_ITEMS = [
   {
     category: 'Prise en charge incluse',
     items: [
-      'Hébergement complet durant les 7 jours du séminaire',
+      'Hébergement complet durant les 6 jours du séminaire',
       'Restauration complète 3 repas par jour (Petit-déjeuner, Déjeuner, Dîner équilibrés)',
       'Supports pédagogiques et documents de formation',
       'Assistance médicale d\'urgence assurée 24h/24 par la commission santé',

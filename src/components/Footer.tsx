@@ -1,7 +1,7 @@
 import React from 'react';
 import { SeminarConfig } from '../types';
 import { AeemciLogo } from './AeemciLogo';
-import { Phone, Mail, MapPin, Heart, Shield, ArrowUp, ExternalLink } from 'lucide-react';
+import { Phone, Mail, MapPin, Heart, Shield, ArrowUp, ExternalLink, MessageCircle } from 'lucide-react';
 
 interface FooterProps {
   config: SeminarConfig;
@@ -89,29 +89,82 @@ export const Footer: React.FC<FooterProps> = ({
             </ul>
           </div>
 
-          {/* Col 3: Contacts */}
+          {/* Col 3: Contacts & Siège */}
           <div>
             <h4 className="text-xs font-bold uppercase tracking-wider text-white mb-4">
-              Comité d'Organisation
+              Contacts & Siège
             </h4>
-            <ul className="space-y-2.5 text-xs text-slate-400">
-              <li className="flex items-center gap-2">
-                <Phone className="w-4 h-4 text-emerald-500 shrink-0" />
-                <span>{config.contacts.primaryPhone}</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <Phone className="w-4 h-4 text-emerald-500 shrink-0" />
-                <span>{config.contacts.secondaryPhone}</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <Mail className="w-4 h-4 text-emerald-500 shrink-0" />
-                <span className="line-clamp-1">{config.contacts.email}</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <MapPin className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-                <span>{config.location.venue}, {config.location.city} ({config.region})</span>
-              </li>
-            </ul>
+            <div className="space-y-3 text-xs">
+              {/* Email */}
+              <div className="flex items-start gap-2.5">
+                <Mail className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                <div>
+                  <span className="text-slate-400 text-[11px] block">Email :</span>
+                  <a
+                    href={`mailto:${config.contacts.email}`}
+                    className="text-white hover:text-amber-400 transition-colors font-medium break-all"
+                  >
+                    {config.contacts.email}
+                  </a>
+                </div>
+              </div>
+
+              {/* Siège social */}
+              <div className="flex items-start gap-2.5">
+                <MapPin className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                <div>
+                  <span className="text-slate-400 text-[11px] block">Siège social :</span>
+                  <span className="text-white font-medium">
+                    {config.contacts.address}
+                  </span>
+                </div>
+              </div>
+
+              {/* Contact */}
+              <div className="flex items-start gap-2.5">
+                <Phone className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                <div>
+                  <span className="text-slate-400 text-[11px] block">Contact :</span>
+                  <div className="text-white font-medium flex flex-wrap items-center gap-1.5">
+                    <a href="tel:+2250788609677" className="hover:text-amber-400 transition-colors">
+                      (+225) 0788609677
+                    </a>
+                    <span className="text-slate-500">/</span>
+                    <a href="tel:+2250141273083" className="hover:text-amber-400 transition-colors">
+                      0141273083
+                    </a>
+                    <span className="text-slate-500">/</span>
+                    <a href="tel:+2250574613512" className="hover:text-amber-400 transition-colors">
+                      0574613512
+                    </a>
+                  </div>
+                </div>
+              </div>
+
+              {/* Urgence WhatsApp */}
+              <div className="flex items-start gap-2.5 pt-2 border-t border-slate-800/80">
+                <MessageCircle className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                <div>
+                  <span className="text-amber-400 font-bold text-[11px] block">Urgence :</span>
+                  <a
+                    href="https://wa.me/2250564843912"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-white hover:text-emerald-300 font-semibold transition-colors"
+                  >
+                    <span>0564843912</span>
+                    <span className="text-[10px] bg-emerald-950 text-emerald-300 border border-emerald-700/60 px-1.5 py-0.5 rounded font-normal">
+                      whatsapp
+                    </span>
+                  </a>
+                </div>
+              </div>
+
+              {/* Lieu du Séminaire */}
+              <div className="text-[11px] text-slate-400 pt-1">
+                <span className="text-slate-500">Lieu du séminaire :</span> {config.location.venue}, {config.location.city}
+              </div>
+            </div>
           </div>
 
           {/* Col 4: Mobile Money info & Admin */}
