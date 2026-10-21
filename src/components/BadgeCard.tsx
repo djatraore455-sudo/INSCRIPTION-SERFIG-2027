@@ -15,16 +15,8 @@ export const BadgeCard: React.FC<BadgeCardProps> = ({ participant, config, showA
   const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
 
   useEffect(() => {
-    // Generate QR Code containing verification data
-    const qrPayload = JSON.stringify({
-      m: participant.matricule,
-      n: participant.fullName,
-      t: participant.type,
-      s: participant.subCommittee,
-      p: participant.paymentStatus,
-      c: config.acronym,
-      r: config.region
-    });
+    // Generate QR Code containing ONLY the matricule
+    const qrPayload = participant.matricule || '';
 
     QRCode.toDataURL(qrPayload, {
       width: 220,

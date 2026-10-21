@@ -169,3 +169,83 @@ export interface Donation {
   date: string;
   paymentMethod: string;
 }
+
+export interface Dormitory {
+  id?: string;
+  name: string;
+  capacity: number;
+  gender: 'homme' | 'femme';
+  created_at?: string;
+  occupants_count?: number;
+}
+
+export interface DbPayment {
+  id: string;
+  participant_id?: string;
+  donation_id?: string;
+  provider: string;
+  amount: number;
+  status: 'pending' | 'processing' | 'succeeded' | 'failed' | 'cancelled' | 'refunded';
+  client_reference?: string;
+  created_at: string;
+  // Jointures
+  participant?: {
+    full_name: string;
+    matricule: string;
+    sub_committee: string;
+  };
+  donation?: {
+    donor_name: string;
+  };
+}
+
+export interface DbAttendance {
+  participant_id: string;
+  session_key: string;
+  scanned_at: string;
+  participant?: {
+    matricule: string;
+    full_name: string;
+    sub_committee: string;
+    participant_type: string;
+    gender: string;
+    dormitory?: string;
+  };
+}
+
+export type AdminRoleType = 'super_admin' | 'finance' | 'organisateur' | 'sante';
+
+export interface ActivityLog {
+  id: string;
+  user_email: string;
+  action: string;
+  entity_type?: string;
+  entity_id?: string;
+  details?: any;
+  created_at: string;
+}
+
+export interface MedicalVisit {
+  id: string;
+  participant_id: string;
+  participant_name: string;
+  matricule?: string;
+  visit_date: string;
+  reason: string;
+  diagnosis?: string;
+  treatment?: string;
+  doctor_notes?: string;
+  emergency_contacted: boolean;
+  created_at?: string;
+}
+
+export interface OfflineScanItem {
+  id: string;
+  matricule: string;
+  sessionKey: string;
+  timestamp: string;
+  status: 'pending' | 'synced' | 'failed';
+  error?: string;
+}
+
+

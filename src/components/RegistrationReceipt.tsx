@@ -46,15 +46,8 @@ export const RegistrationReceipt: React.FC<RegistrationReceiptProps> = ({
   }, [initialParticipant]);
 
   useEffect(() => {
-    // Generate QR Code containing link to Espace Séminariste / Verification
-    const payload = JSON.stringify({
-      matricule: participant.matricule,
-      nom: participant.fullName,
-      statut: participant.type,
-      recu: participant.receiptNumber || '—',
-      region: config.region,
-      action: 'ESPACE_SEMINARISTE_SERFIG2027'
-    });
+    // Generate QR Code containing ONLY the matricule
+    const payload = participant.matricule || '';
 
     QRCode.toDataURL(payload, {
       width: 200,
@@ -591,7 +584,7 @@ export const RegistrationReceipt: React.FC<RegistrationReceiptProps> = ({
                   {participant.paymentStatus === 'paye' || participant.paymentStatus === 'gratuit' ? (
                     <span className="inline-flex items-center gap-1 font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded border border-emerald-300">
                       <CheckCircle className="w-3.5 h-3.5 text-emerald-700" />
-                      Paiement Validé ({participant.paymentMethod || 'Wave / OM'})
+                      Paiement Validé ({participant.paymentMethod || 'Wave Direct'})
                     </span>
                   ) : (
                     <span className="inline-flex items-center gap-1 font-bold text-orange-800 bg-orange-100 px-2 py-0.5 rounded border border-orange-300">

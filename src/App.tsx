@@ -9,7 +9,7 @@ import { PoloSection } from './components/PoloSection';
 import { SeminarGuide } from './components/SeminarGuide';
 import { RegistrationModal } from './components/RegistrationModal';
 import { VerifyRegistrationModal } from './components/VerifyRegistrationModal';
-import { AdminModal } from './components/AdminModal';
+import { AdminPage } from './components/AdminPage';
 import { SponsorModal } from './components/SponsorModal';
 import { ParticipantSpaceModal } from './components/ParticipantSpaceModal';
 import { Footer } from './components/Footer';
@@ -18,11 +18,23 @@ import { UserCheck, Sparkles, Shield, ArrowRight, FileText } from 'lucide-react'
 export default function App() {
   const [config, setConfig] = useState<SeminarConfig>(() => getActiveSeminarConfig());
 
+  // Dedicated Route state for Admin Page (#/admin)
+  const [isAdminRoute, setIsAdminRoute] = useState<boolean>(() => {
+    return window.location.hash === '#/admin' || window.location.hash.startsWith('#/admin');
+  });
+
+  useEffect(() => {
+    const handleHashChange = () => {
+      setIsAdminRoute(window.location.hash === '#/admin' || window.location.hash.startsWith('#/admin'));
+    };
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
+
   // Modals state
   const [isRegisterOpen, setIsRegisterOpen] = useState(false);
   const [registerInitialType, setRegisterInitialType] = useState<ParticipantType>('seminariste');
   const [isVerifyOpen, setIsVerifyOpen] = useState(false);
-  const [isAdminOpen, setIsAdminOpen] = useState(false);
   const [isSponsorOpen, setIsSponsorOpen] = useState(false);
   
   // Participant Space & Receipt Modal state
@@ -31,8 +43,12 @@ export default function App() {
 
   // Sync title with active seminar
   useEffect(() => {
-    document.title = `Portail ${config.editionName} - AEEMCI Gestion du Séminaire`;
-  }, [config]);
+    if (isAdminRoute) {
+      document.title = `Administration ${config.editionName} • AEEMCI Gôh`;
+    } else {
+      document.title = `Portail ${config.editionName} - AEEMCI Gestion du Séminaire`;
+    }
+  }, [config, isAdminRoute]);
 
   const handleOpenRegister = (type: ParticipantType = 'seminariste') => {
     setRegisterInitialType(type);
@@ -69,6 +85,25 @@ export default function App() {
     setConfig(newConfig);
   };
 
+  const handleNavigateToAdmin = () => {
+    window.location.hash = '#/admin';
+    setIsAdminRoute(true);
+  };
+
+  // Si la route est #/admin, afficher la page dédiée AdminPage
+  if (isAdminRoute) {
+    return (
+      <AdminPage
+        config={config}
+        onBackToPublic={() => {
+          window.location.hash = '';
+          setIsAdminRoute(false);
+        }}
+        onConfigUpdated={handleConfigUpdated}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 text-slate-800 antialiased selection:bg-emerald-200 selection:text-emerald-900">
       {/* Navigation */}
@@ -76,7 +111,7 @@ export default function App() {
         config={config}
         onOpenRegister={handleScrollToTypes}
         onOpenVerify={() => setIsVerifyOpen(true)}
-        onOpenAdmin={() => setIsAdminOpen(true)}
+        onOpenAdmin={handleNavigateToAdmin}
         onOpenSponsor={() => setIsSponsorOpen(true)}
         onOpenParticipantSpace={() => handleOpenParticipantSpace()}
       />
@@ -87,7 +122,7 @@ export default function App() {
           config={config}
           onOpenRegister={handleScrollToTypes}
           onOpenVerify={() => setIsVerifyOpen(true)}
-          onOpenAdmin={() => setIsAdminOpen(true)}
+          onOpenAdmin={handleNavigateToAdmin}
         />
 
         {/* Seminar Presentation & Formula Cards (Séminariste / Formateur / Commission) */}
@@ -113,16 +148,16 @@ export default function App() {
       {/* Footer */}
       <Footer
         config={config}
-        onOpenAdmin={() => setIsAdminOpen(true)}
+        onOpenAdmin={handleNavigateToAdmin}
         onOpenRegister={handleScrollToTypes}
         onOpenVerify={() => setIsVerifyOpen(true)}
       />
 
-      {/* Floating Bottom Quick Bar (Mobile & Quick Access) */}
-      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-30 max-w-md w-[95%] sm:w-auto bg-slate-900/90 backdrop-blur-md text-white px-4 py-2.5 rounded-full shadow-2xl border border-slate-700/80 flex items-center justify-between sm:gap-3">
+      {/* Floating Bottom Quick Bar (Mobile & Quick Access) - Palette Blanc, Orange & Vert */}
+      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-30 max-w-md w-[95%] sm:w-auto bg-white/95 backdrop-blur-md text-slate-800 px-4 py-2 rounded-full shadow-xl shadow-slate-900/10 border-2 border-orange-500/30 flex items-center justify-between sm:gap-3">
         <button
           onClick={handleScrollToTypes}
-          className="px-3.5 py-2 bg-orange-600 hover:bg-orange-500 text-white font-black rounded-full text-xs transition-all flex items-center gap-1.5 cursor-pointer shadow-md shadow-orange-600/25"
+          className="px-3.5 py-1.5 bg-[#f26315] hover:bg-orange-600 text-white font-extrabold rounded-full text-xs transition-all flex items-center gap-1.5 cursor-pointer shadow-md shadow-orange-500/25 active:scale-95"
         >
           <Sparkles className="w-3.5 h-3.5 text-white" />
           <span>S'inscrire</span>
@@ -130,29 +165,29 @@ export default function App() {
 
         <button
           onClick={() => handleOpenParticipantSpace()}
-          className="px-3 py-1.5 text-xs font-bold text-emerald-300 hover:text-white transition-all flex items-center gap-1.5 cursor-pointer"
+          className="px-3 py-1.5 text-xs font-bold text-emerald-800 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100/80 rounded-full border border-emerald-200 transition-all flex items-center gap-1.5 cursor-pointer"
           title="Consulter mon Reçu A4 & Émargement"
         >
-          <FileText className="w-3.5 h-3.5 text-emerald-400" />
+          <FileText className="w-3.5 h-3.5 text-emerald-600" />
           <span>Mon Reçu</span>
         </button>
 
         <button
           onClick={() => setIsVerifyOpen(true)}
-          className="px-3 py-1.5 text-xs font-bold text-slate-200 hover:text-white transition-all flex items-center gap-1.5 cursor-pointer"
+          className="px-3 py-1.5 text-xs font-bold text-slate-700 hover:text-orange-600 transition-all flex items-center gap-1.5 cursor-pointer"
         >
-          <UserCheck className="w-3.5 h-3.5 text-slate-300" />
+          <UserCheck className="w-3.5 h-3.5 text-slate-500" />
           <span>Badge</span>
         </button>
 
-        <div className="h-4 w-[1px] bg-slate-700"></div>
+        <div className="h-4 w-[1px] bg-slate-200"></div>
 
         <button
-          onClick={() => setIsAdminOpen(true)}
-          className="px-3 py-1.5 text-xs font-bold text-amber-300 hover:text-amber-200 transition-all flex items-center gap-1.5 cursor-pointer"
-          title="Panneau de gestion & paramètres SERFIG 2027"
+          onClick={handleNavigateToAdmin}
+          className="px-3 py-1.5 text-xs font-bold text-orange-700 hover:text-orange-800 bg-orange-50 hover:bg-orange-100/80 rounded-full border border-orange-200 transition-all flex items-center gap-1.5 cursor-pointer"
+          title="Espace administration SERFIG 2027"
         >
-          <Shield className="w-3.5 h-3.5" />
+          <Shield className="w-3.5 h-3.5 text-orange-600" />
           <span className="hidden sm:inline">Admin</span>
         </button>
       </div>
@@ -166,7 +201,7 @@ export default function App() {
         onOpenParticipantSpace={(p) => handleOpenParticipantSpace(p)}
         onOpenAdmin={() => {
           setIsRegisterOpen(false);
-          setIsAdminOpen(true);
+          handleNavigateToAdmin();
         }}
       />
 
@@ -174,14 +209,6 @@ export default function App() {
         isOpen={isVerifyOpen}
         onClose={() => setIsVerifyOpen(false)}
         config={config}
-        onOpenParticipantSpace={(p) => handleOpenParticipantSpace(p)}
-      />
-
-      <AdminModal
-        isOpen={isAdminOpen}
-        onClose={() => setIsAdminOpen(false)}
-        config={config}
-        onConfigUpdated={handleConfigUpdated}
         onOpenParticipantSpace={(p) => handleOpenParticipantSpace(p)}
       />
 
