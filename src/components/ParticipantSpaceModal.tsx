@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Participant, SeminarConfig } from '../types';
 import { RegistrationReceipt } from './RegistrationReceipt';
 import { BadgeCard } from './BadgeCard';
+import { SeminaristReportCard } from './SeminaristReportCard';
 import { AeemciLogo } from './AeemciLogo';
 import { 
   X, 
@@ -19,7 +20,8 @@ import {
   Printer, 
   Share2, 
   Sparkles,
-  ChevronRight
+  ChevronRight,
+  Award
 } from 'lucide-react';
 import { updateParticipantStatus, calculateAge } from '../services/storage';
 
@@ -39,7 +41,7 @@ export const ParticipantSpaceModal: React.FC<ParticipantSpaceModalProps> = ({
   onUpdateParticipant
 }) => {
   const [participant, setParticipant] = useState<Participant>(initialParticipant);
-  const [activeTab, setActiveTab] = useState<'receipt' | 'badge' | 'attendance' | 'guide'>('receipt');
+  const [activeTab, setActiveTab] = useState<'receipt' | 'badge' | 'attendance' | 'bulletin' | 'guide'>('receipt');
   const [copiedLink, setCopiedLink] = useState(false);
 
   if (!isOpen) return null;
@@ -205,6 +207,20 @@ export const ParticipantSpaceModal: React.FC<ParticipantSpaceModalProps> = ({
             <Utensils className="w-4 h-4 text-amber-600" />
             <span>Émargement Cours & Restaurant</span>
           </button>
+
+          {participant.type === 'seminariste' && (
+            <button
+              onClick={() => setActiveTab('bulletin')}
+              className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-extrabold flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
+                activeTab === 'bulletin'
+                  ? 'bg-white text-[#f26315] shadow-sm border border-slate-200'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+              }`}
+            >
+              <Award className="w-4 h-4 text-[#f26315]" />
+              <span>Bulletin de Note Officiel</span>
+            </button>
+          )}
         </div>
 
         {/* Tab Content Body */}
@@ -223,6 +239,16 @@ export const ParticipantSpaceModal: React.FC<ParticipantSpaceModalProps> = ({
           {activeTab === 'badge' && (
             <div className="w-full flex flex-col items-center py-4">
               <BadgeCard
+                participant={participant}
+                config={config}
+                showActions={true}
+              />
+            </div>
+          )}
+
+          {activeTab === 'bulletin' && (
+            <div className="w-full flex flex-col items-center py-2">
+              <SeminaristReportCard
                 participant={participant}
                 config={config}
                 showActions={true}

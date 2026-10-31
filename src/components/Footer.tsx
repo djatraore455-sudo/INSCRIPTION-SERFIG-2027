@@ -158,8 +158,12 @@ export const Footer: React.FC<FooterProps> = ({
                       (+225) 0788609677
                     </a>
                     <span className="text-slate-400">/</span>
-                    <a href="tel:+2250141273083" className="hover:text-orange-600 transition-colors">
-                      0141273083
+                    <a href="tel:+2250556265900" className="hover:text-orange-600 transition-colors">
+                      0556265900
+                    </a>
+                    <span className="text-slate-400">/</span>
+                    <a href="tel:+2250564843912" className="hover:text-orange-600 transition-colors">
+                      0564843912
                     </a>
                     <span className="text-slate-400">/</span>
                     <a href="tel:+2250574613512" className="hover:text-orange-600 transition-colors">

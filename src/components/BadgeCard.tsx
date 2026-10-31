@@ -138,9 +138,30 @@ export const BadgeCard: React.FC<BadgeCardProps> = ({ participant, config, showA
             )}
           </div>
 
+          {/* Niveau Pédagogique attribué sur le Badge */}
+          {participant.type === 'seminariste' && (
+            <div className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-orange-50 border-2 border-orange-400 text-orange-950 shadow-2xs">
+              <span className="text-[10px] font-black uppercase text-orange-700">NIVEAU :</span>
+              <span className="text-xs font-black text-orange-950 font-mono">
+                {participant.assignedClass || participant.assignedLevel || (participant.isExecutiveMember ? 'Responsable de Base' : 'Niveau 1')}
+              </span>
+              {participant.assignedRoom && (
+                <span className="text-[10px] text-orange-800 font-bold border-l border-orange-300 pl-1.5">
+                  📍 {participant.assignedRoom}
+                </span>
+              )}
+            </div>
+          )}
+
+          {participant.isExecutiveMember && (
+            <div className="mt-1 text-[10px] font-black text-purple-900 bg-purple-100 px-2.5 py-0.5 rounded-full border border-purple-300">
+              ⭐ Membre de Bureau {participant.executiveRole ? `• ${participant.executiveRole}` : ''}
+            </div>
+          )}
+
           {/* Clothing Badge if purchased */}
           {participant.hasPolo && (
-            <div className="mt-2 inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-orange-100 text-orange-900 text-[10px] font-extrabold border border-orange-300">
+            <div className="mt-1.5 inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-orange-100 text-orange-900 text-[10px] font-extrabold border border-orange-300">
               <span>👕 {participant.clothingType === 'tshirt' ? 'Tee-shirt' : 'Polo'} {participant.poloSize || 'Inclus'}</span>
               {participant.poloColor && <span>({participant.poloColor})</span>}
             </div>

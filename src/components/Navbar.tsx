@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { SeminarConfig } from '../types';
 import { AeemciLogo } from './AeemciLogo';
 import { LayoutDashboard, Menu, X, UserCheck, Calendar, Sparkles, HeartHandshake, FileText } from 'lucide-react';
+import { PWAInstallButton } from './PWAInstallButton';
 
 interface NavbarProps {
   config: SeminarConfig;
@@ -60,6 +61,9 @@ export const Navbar: React.FC<NavbarProps> = ({
             <UserCheck className="w-4 h-4 text-emerald-700" />
             <span>Vérifier Badge</span>
           </button>
+
+          {/* Bouton d'installation PWA (Écran d'accueil) */}
+          <PWAInstallButton variant="navbar" className="hidden sm:inline-flex" />
 
           {/* Prominent Orange Dashboard Button */}
           <button
@@ -138,6 +142,11 @@ export const Navbar: React.FC<NavbarProps> = ({
               <LayoutDashboard className="w-4 h-4 text-white" />
               <span>Espace Administrateur (Dashboard)</span>
             </button>
+          </div>
+
+          {/* Raccourci PWA Installation pour Mobile */}
+          <div className="pt-1">
+            <PWAInstallButton variant="menu-item" />
           </div>
 
           <div className="pt-2 flex flex-wrap gap-4 text-xs font-semibold text-slate-500 border-t border-slate-100">

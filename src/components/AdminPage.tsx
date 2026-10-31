@@ -9,7 +9,7 @@ import {
   DbPayment, 
   DbAttendance 
 } from '../types';
-import { calculateAge } from '../services/storage';
+import { calculateAge, updateParticipantStatus } from '../services/storage';
 import { BadgeCard } from './BadgeCard';
 import { RegistrationReceipt } from './RegistrationReceipt';
 import { Html5Qrcode } from 'html5-qrcode';
@@ -58,13 +58,15 @@ import {
   WifiOff,
   History,
   Award,
-  Database
+  Database,
+  DoorOpen
 } from 'lucide-react';
 import { AdminMessaging } from './admin/AdminMessaging';
 import { AdminMedical } from './admin/AdminMedical';
 import { AdminSchedule } from './admin/AdminSchedule';
 import { AdminActivityLogs } from './admin/AdminActivityLogs';
 import { AdminCertificates } from './admin/AdminCertificates';
+import { PWAInstallButton } from './PWAInstallButton';
 
 interface AdminPageProps {
   config: SeminarConfig;
@@ -1652,6 +1654,9 @@ export const AdminPage: React.FC<AdminPageProps> = ({
               </span>
             </span>
 
+            {/* Bouton d'installation PWA */}
+            <PWAInstallButton variant="navbar" className="hidden lg:inline-flex" />
+
             {/* Bouton Actualiser */}
             <button
               onClick={loadAllDataFromSupabase}
@@ -3177,6 +3182,68 @@ export const AdminPage: React.FC<AdminPageProps> = ({
                   Imprimer / PDF
                 </button>
               </div>
+
+              {/* 5. Bulletins de Note Officiels (Nouveau - Modèle SERFIG) */}
+              <div className="bg-gradient-to-br from-orange-50 to-amber-50 p-5 rounded-xl border-2 border-orange-300 shadow-xs space-y-3 flex flex-col justify-between sm:col-span-2 lg:col-span-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-xl bg-[#0b5334] text-[#f26315] flex items-center justify-center shrink-0 shadow-xs">
+                      <Award className="w-6 h-6 text-white" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-black text-slate-900 text-sm sm:text-base">
+                          Bulletins de Note Officiels (SERFIG 2027)
+                        </h4>
+                        <span className="px-2 py-0.5 rounded-full bg-orange-200 text-orange-900 text-[10px] font-black uppercase">
+                          Modèle Homologué
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-600 mt-1">
+                        Format A4 conforme avec Test d'entrée, Test de Sortie, Conduite, Moyenne / 20 et Décision d'admission. Impression individuelle ou par lot complet en 1 clic.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setActiveTab('certificates')}
+                    className="px-5 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-500 text-white font-black text-xs transition-all shadow-md cursor-pointer shrink-0 active:scale-95 flex items-center justify-center gap-2"
+                  >
+                    <Award className="w-4 h-4 text-white" />
+                    <span>Gérer & Imprimer les Bulletins</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* 6. Fiches d'Affichage Portes de Salles (Jour 1) */}
+              <div className="bg-gradient-to-br from-emerald-50 to-teal-50 p-5 rounded-xl border-2 border-emerald-300 shadow-xs space-y-3 flex flex-col justify-between sm:col-span-2 lg:col-span-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-xl bg-[#0b5334] text-white flex items-center justify-center shrink-0 shadow-xs">
+                      <DoorOpen className="w-6 h-6 text-white" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-black text-slate-900 text-sm sm:text-base">
+                          Fiches d'Affichage Portes de Salles (Jour 1)
+                        </h4>
+                        <span className="px-2 py-0.5 rounded-full bg-emerald-200 text-emerald-900 text-[10px] font-black uppercase">
+                          Orientation J1
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-600 mt-1">
+                        Listes officielles d'affectation avec Nom, Prénom, Matricule, Sous-comité et Note du test d'entrée, prêtes à être imprimées en A4 et affichées devant chaque salle (Niveau 1A, 1B, 2, 3, Resp. de Base).
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setActiveTab('certificates')}
+                    className="px-5 py-2.5 rounded-xl bg-[#0b5334] hover:bg-emerald-900 text-white font-black text-xs transition-all shadow-md cursor-pointer shrink-0 active:scale-95 flex items-center justify-center gap-2"
+                  >
+                    <Printer className="w-4 h-4 text-white" />
+                    <span>Imprimer Fiches de Portes</span>
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -3495,12 +3562,16 @@ export const AdminPage: React.FC<AdminPageProps> = ({
           />
         )}
 
-        {/* ─── PHASE 2 : ATTESTATIONS & BILAN FINAL ────────────────── */}
+        {/* ─── PHASE 2 : ATTESTATIONS, BULLETINS & BILAN FINAL ─────── */}
         {activeTab === 'certificates' && (
           <AdminCertificates
             participants={participants}
             config={config}
             userEmail={userEmail}
+            onUpdateParticipant={(updated) => {
+              setParticipants(prev => prev.map(p => p.id === updated.id ? updated : p));
+              updateParticipantStatus(updated.id, updated);
+            }}
           />
         )}
       </div>

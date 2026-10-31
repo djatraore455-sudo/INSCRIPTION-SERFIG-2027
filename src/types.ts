@@ -107,6 +107,16 @@ export interface Participant {
   commissionExperience?: string;
   wavePhoneNumber?: string;
   
+  // Responsabilités AEEMCI & Affectation Pédagogique (Niveau & Salle)
+  isExecutiveMember?: boolean; // Membre d'un bureau AEEMCI
+  executiveRole?: string; // ex: "Président de section", "Secrétaire Général", "Trésorier"
+  executiveStructure?: string; // ex: "Section Lycée Moderne 1", "Sous-comité Gagnoa"
+  entryTestScore?: number; // Note obtenue au test d'entrée (sur 20)
+  entryTestPassedAt?: string;
+  assignedLevel?: string; // "Niveau 1" | "Niveau 2" | "Niveau 3" | "Responsable de Base"
+  assignedClass?: string; // "Niveau 1A" | "Niveau 1B" | "Niveau 2" | "Responsable de Base"
+  assignedRoom?: string; // "Salle 01" | "Salle 02" | "Amphi B"
+  
   // Finances
   registrationFee: number;
   poloFee: number;
@@ -139,8 +149,28 @@ export interface Participant {
     lastMealAt?: string;
   };
   
+  // Evaluation & Bulletin de Note
+  grades?: ParticipantGrades;
+  
   registeredAt: string;
   notes?: string;
+}
+
+export interface ParticipantGrades {
+  entryTest?: number; // Note / 20 (Test d'entrée)
+  exitTest?: number; // Note / 20 (Test de Sortie)
+  conduct?: number; // Note / 20 (Conduite)
+  entryTestCoeff?: number; // Coeff (défaut: 1)
+  exitTestCoeff?: number; // Coeff (défaut: 2)
+  conductCoeff?: number; // Coeff (défaut: 1)
+  currentLevel?: string; // ex: "Niveau 1", "Niveau 2", "Niveau 3"
+  targetLevel?: string; // ex: "Niveau 2", "Niveau 3", "Niveau Supérieur"
+  mention?: string; // "Passable", "Assez Bien", "Bien", "Très Bien", "Excellent"
+  decision?: string; // "ADMIS(E) AU NIVEAU SUPÉRIEUR", "AJOURNÉ(E)"
+  rank?: number; // Rang
+  totalRanked?: number; // Nombre total dans le niveau
+  date?: string; // Date de délivrance, ex: "22 Avril 2027"
+  isPublished?: boolean; // Accessible dans l'espace séminariste
 }
 
 export interface ScheduleItem {

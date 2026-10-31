@@ -166,22 +166,22 @@ export const RegistrationReceipt: React.FC<RegistrationReceiptProps> = ({
             'Vos effets personnels de séjour et votre pièce d\'identité officielle.',
             'Votre fiche d\'inscription et ce reçu pour l\'accès prioritaire au réfectoire et aux salles de cours.'
           ],
-          responsibilitiesTitle: isAine ? 'Rôle consultatif & parrainage :' : 'Responsabilités pédagogiques :',
+          responsibilitiesTitle: isAine ? 'Rôle consultatif & parrainage :' : 'Responsabilités pédagogiques (Cahier des Charges) :',
           responsibilities: isAine ? [
             'Partage d\'expérience et écoute active de la jeune génération d\'élèves et étudiants.',
-            'Conseils stratégiques auprès du bureau régional et de la commission d\'organisation.',
+            'Conseils stratégiques auprès du PCO et du Secrétariat Régional du Gôh.',
             'Animation de panels d\'orientation académique, professionnelle et d\'entrepreneuriat.',
-            'Transmission vivante de la devise de l\'AEEMCI : Science - Foi - Action.'
+            'Transmission vivante des valeurs fondamentales de l\'AEEMCI : Foi • Fraternité • Travail.'
           ] : [
-            'Respect scrupuleux des horaires d\'ouverture et de clôture de chaque module d\'enseignement.',
-            'Émargement des feuilles de présence des séminaristes à chaque début de séance.',
-            'Disponibilité pour les séances d\'orientation doctrinale et les questions-réponses des séminaristes.',
+            'Respect scrupuleux des horaires et du programme validé par la Commission Formation.',
+            'Renseignement et émargement des feuilles de présence des séminaristes à chaque début de séance.',
+            'Transmission des supports de cours et participation à l\'évaluation finale des participants.',
             'Veiller à la bonne compréhension et à la transmission fidèle des valeurs de l\'Islam du juste milieu.'
           ],
           contacts: [
-            { label: 'Coordination Pédagogique SERFIG', phone: config.contacts.primaryPhone },
-            { label: 'Logistique & Accueil Enseignants', phone: config.contacts.secondaryPhone },
-            { label: 'Urgences & Assistance', phone: '+225 01 02 03 04 05' }
+            { label: 'PCO / Coordination Générale', phone: '(+225) 0788609677' },
+            { label: 'Commission Formation & Pédagogie', phone: '(+225) 0556265900' },
+            { label: 'Santé & Urgences Médicales', phone: '(+225) 0564843912' }
           ]
         };
       }
@@ -192,25 +192,25 @@ export const RegistrationReceipt: React.FC<RegistrationReceiptProps> = ({
           statusLabel: 'MEMBRE DE COMMISSION',
           matriculeLabel: 'MATRICULE COMMISSION',
           identificationTitle: `IDENTIFICATION DU MEMBRE DE COMMISSION (${(participant.commission || 'ORGANISATION').toUpperCase()})`,
-          consignesTitle: 'CONSIGNES POUR LES MEMBRES DES COMMISSIONS',
-          intro: 'En tant que Membre de la Commission d\'organisation, vous devez prévoir :',
+          consignesTitle: 'CONSIGNES OFFICIELLES (CAHIER DES CHARGES DU COMITÉ D\'ORGANISATION)',
+          intro: 'En tant que Membre de Commission du SERFIG 2027, vous êtes tenu de respecter :',
           items: [
-            'Votre polo ou gilet officiel de commission pour être immédiatement identifiable par les séminaristes.',
-            'Votre matériel de travail spécifique (registres, fiches de pointage restaurant, trousse, sifflet, badge).',
-            'Votre literie personnelle (drap, couverture, moustiquaire) et nécessaire de toilette.',
-            'Vos pièces d\'identité et cette fiche d\'inscription / reçu officiel.'
+            'Prendre connaissance intégrale du Cahier des Charges de votre commission et respecter son effectif indicatif.',
+            'Porter en permanence votre badge officiel et le polo ou gilet distinctif de votre commission.',
+            'Disposer de votre matériel de travail spécifique (registres, fiches de stocks, trousse, fiches d\'émargement).',
+            'Literie personnelle (drap, couverture, moustiquaire imprégnée) et effets personnels de séjour.'
           ],
-          responsibilitiesTitle: 'Responsabilités organisationnelles :',
+          responsibilitiesTitle: 'Engagements & Devoirs organisationnels :',
           responsibilities: [
-            'Ponctualité stricte aux réunions de coordination quotidiennes (après la prière de Fadjr et après Isha).',
-            'Encadrement bienveillant, écoute active et assistance continue aux plus de 400 séminaristes attendus.',
-            'Contrôle rigoureux du passage au restaurant et du bon déroulement des repas aux heures indiquées.',
-            'Veiller au maintien permanent de la propreté, de la sécurité et de la discipline sur tout le site.'
+            'Ponctualité stricte aux réunions de coordination quotidiennes convoquées par la Présidence du PCO.',
+            'Aucune dépense ni engagement officiel sans devis préalable validé par le PCO et la Commission Finance.',
+            'Discipline, esprit d\'équipe, collaboration transversale et respect scrupuleux de la hiérarchie.',
+            'Transmission régulière des comptes rendus d\'activités et du rapport final de fin de séminaire.'
           ],
           contacts: [
-            { label: 'Secrétariat Régional AEEMCI Gôh', phone: config.contacts.primaryPhone },
-            { label: 'Supervision Générale du Séminaire', phone: config.contacts.secondaryPhone },
-            { label: 'Permanence Sécurité & Urgences', phone: '+225 01 02 03 04 05' }
+            { label: 'PCO / Présidence du Comité', phone: '(+225) 0788609677' },
+            { label: 'Commission Finance & Logistique', phone: '(+225) 0574613512' },
+            { label: 'Commission Sécurité & Permanence', phone: '(+225) 0564843912' }
           ]
         };
 
@@ -220,27 +220,28 @@ export const RegistrationReceipt: React.FC<RegistrationReceiptProps> = ({
           statusLabel: 'SÉMINARISTE',
           matriculeLabel: 'MATRICULE SÉMINARISTE',
           identificationTitle: 'IDENTIFICATION DU SÉMINARISTE',
-          consignesTitle: 'CONSIGNES POUR LES SÉMINARISTES (TROUSSEAU & DISCIPLINE)',
-          intro: 'En tant que Séminariste, vous devez obligatoirement prévoir :',
+          consignesTitle: 'CONSIGNES OFFICIELLES DU SÉMINARISTE (TROUSSEAU & CODE DE VIE)',
+          intro: 'En tant que Séminariste, vous devez obligatoirement vous munir du trousseau complet :',
           items: [
             'Le Saint Coran (arabe avec traduction française), un tapis de prière individuel, bloc-notes et stylos.',
-            'Des vêtements décents et conformes à l\'éthique islamique (djellabas, pantalons amples ; hijabs couvrants, abayas).',
-            'Votre literie personnelle (drap, couverture légère, moustiquaire imprégnée).',
-            'Nécessaire de toilette complet, serviette, sandales d\'eau et petite monnaie pour besoins d\'usage.',
-            'Vos documents d\'identité et cette fiche d\'inscription / reçu munie de votre QR code personnel.'
+            'Tenues décentes conformes à l\'éthique islamique (djellabas, pantalons amples pour frères ; hijabs couvrants et abayas pour sœurs).',
+            'Literie personnelle obligatoire : drap, couverture légère, moustiquaire imprégnée et nécessaire de toilette complet.',
+            'Cette fiche d\'inscription / reçu officiel munie du QR code pour tous les contrôles d\'accès.',
+            'Pièce d\'identité scolaire ou nationale et éventuellement médicaments prescrits avec ordonnance.'
           ],
-          responsibilitiesTitle: 'Responsabilités spéciales & Vie en communauté :',
+          responsibilitiesTitle: 'Code de Vie & Règles de Discipline (Commissions Sécurité & Cadre de Vie) :',
           responsibilities: [
-            'Présence obligatoire à toutes les 5 prières collectives à la mosquée du séminaire.',
-            'Assiduité stricte à l\'ensemble des cours, conférences et ateliers sans aucun retard.',
-            'Port obligatoire et permanent du badge officiel lors de tous les déplacements sur le site.',
-            'Présentation obligatoire de cette fiche ou de votre QR code au réfectoire pour valider chaque repas.',
-            'Respect strict du couvre-feu et extinction absolue des feux dans les dortoirs à 22h30.'
+            'Port permanent et visible du badge officiel SERFIG 2027 en tout lieu sur le site du Lycée Moderne 1 & 2.',
+            'Interdiction formelle de sortie du site du séminaire sans autorisation écrite de la Commission Sécurité et Vigilance.',
+            'Présence obligatoire à toutes les 5 prières collectives à la mosquée et assiduité intégrale aux cours islamiques.',
+            'Émargement obligatoire de la feuille de présence à chaque cours (condition stricte pour l\'attestation de fin de séminaire).',
+            'Présentation obligatoire de cette fiche ou de son QR code au réfectoire pour la validation de chaque repas.',
+            'Extinction absolue des feux et couvre-feu dans tous les dortoirs à 22h30 précises sous l\'autorité du chef de dortoir.'
           ],
           contacts: [
-            { label: 'Coordination Régionale AEEMCI Gôh', phone: config.contacts.primaryPhone },
-            { label: 'Commission Restauration & Logistique', phone: config.contacts.secondaryPhone },
-            { label: 'Commission Santé & Urgences médicales', phone: '+225 01 02 03 04 05' }
+            { label: 'Secrétariat Régional AEEMCI Gôh', phone: '(+225) 0788609677' },
+            { label: 'Commission Restauration & Accueil', phone: '(+225) 0556265900' },
+            { label: 'Commission Santé & Urgences Médicales', phone: '(+225) 0564843912' }
           ]
         };
     }
@@ -801,17 +802,20 @@ export const RegistrationReceipt: React.FC<RegistrationReceiptProps> = ({
 
         </div>
 
-        {/* Bottom Official Footer Banner in deep AEEMCI green (Matching exactly the photo provided) */}
+        {/* Bottom Official Footer Banner in deep AEEMCI green (Données homologuées du Gôh) */}
         <div className="mt-4 bg-[#046c4e] text-white px-5 py-3 text-center text-[10px] sm:text-[11px] leading-tight space-y-1">
-          <p className="font-medium">
-            Siège Social : Mosquée An-Nour de la Riviera II / 08 BP 2462 Abidjan 08
+          <p className="font-black uppercase tracking-wider text-emerald-100">
+            AEEMCI — Secrétariat Régional du Gôh • Comité d'Organisation {config.editionName}
           </p>
-          <p className="font-bold tracking-wide">
-            27 33 75 42 12 / 07 09 99 55 31 / 05 44 54 34 89 / aeemci@yahoo.fr / www.aeemci.ci
+          <p className="font-medium">
+            Siège Social : Gagnoa carrefour Orange Money • Site Web : www.aeemci-ce.org • Facebook : AEEMCI Secrétariat Régional du Gôh
+          </p>
+          <p className="font-bold tracking-wide text-emerald-200">
+            Contacts : (+225) 0788609677 / 0556265900 / 0564843912 / 0574613512 • Email : aeemcisrgoh@gmail.com
           </p>
           <div className="pt-1 border-t border-emerald-800">
-            <p className="font-black tracking-widest uppercase text-emerald-100 text-xs font-serif">
-              AEEMCI, pour une identité islamique !
+            <p className="font-black tracking-widest uppercase text-emerald-50 text-xs font-serif">
+              « Foi • Fraternité • Travail » — AEEMCI, pour une identité islamique !
             </p>
           </div>
         </div>

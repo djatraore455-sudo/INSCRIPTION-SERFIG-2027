@@ -13,6 +13,7 @@ import { AdminPage } from './components/AdminPage';
 import { SponsorModal } from './components/SponsorModal';
 import { ParticipantSpaceModal } from './components/ParticipantSpaceModal';
 import { Footer } from './components/Footer';
+import { PWAInstallButton } from './components/PWAInstallButton';
 import { UserCheck, Sparkles, Shield, ArrowRight, FileText } from 'lucide-react';
 
 export default function App() {
@@ -191,6 +192,9 @@ export default function App() {
           <span className="hidden sm:inline">Admin</span>
         </button>
       </div>
+
+      {/* Bannière discrète d'installation PWA (mobile/desktop non encore installé) */}
+      <PWAInstallButton variant="banner" />
 
       {/* Modals */}
       <RegistrationModal

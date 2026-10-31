@@ -44,7 +44,7 @@ export const SERFIG_2027_CONFIG: SeminarConfig = {
   commissionFee: 2000,
   contacts: {
     primaryPhone: '(+225) 0788609677',
-    secondaryPhone: '(+225) 0141273083',
+    secondaryPhone: '(+225) 0556265900',
     phone3: '(+225) 0574613512',
     whatsapp: '0564843912',
     emergencyPhone: '0564843912',

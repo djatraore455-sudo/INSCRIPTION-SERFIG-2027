@@ -41,15 +41,21 @@ const formatFCFA = (amount: number): string => {
   return `${amount.toLocaleString('fr-FR').replace(/\u202F/g, ' ')} FCFA`;
 };
 
-// Commissions officielles SERFIG 2027
+// 13 Commissions officielles SERFIG 2027 (Cahier des Charges du Secrétariat Régional du Gôh)
 const COMMISSIONS_LIST = [
-  'Pédagogie & Encadrement',
-  'Sécurité & Discipline',
-  'Restauration',
-  'Santé & Premiers Secours',
-  'Logistique & Dortoirs',
-  'Communication & Média',
-  'Finances & Accueil'
+  'Coordination & Présidence (PCO)',
+  'Commission Restauration',
+  'Commission Formation',
+  'Commission Administration',
+  'Commission Protocole',
+  'Commission Accueil, Cadre de vie et Hygiène',
+  'Commission Finance',
+  'Commission Santé',
+  'Commission Sécurité et Vigilance',
+  'Commission Transport, Sport et Loisirs',
+  'Commission Communication et Multimédia',
+  'Commission Mobilisation',
+  'Commission Pépinière'
 ];
 
 export const RegistrationModal: React.FC<RegistrationModalProps> = ({
@@ -88,6 +94,11 @@ export const RegistrationModal: React.FC<RegistrationModalProps> = ({
   const [parentContact, setParentContact] = useState('');
   const [hasMedicalCondition, setHasMedicalCondition] = useState<boolean | null>(false);
   const [medicalDetails, setMedicalDetails] = useState('');
+
+  // Responsabilités AEEMCI (Orientation Responsable de Base)
+  const [isExecutiveMember, setIsExecutiveMember] = useState(false);
+  const [executiveRole, setExecutiveRole] = useState('Secrétaire Général');
+  const [executiveStructure, setExecutiveStructure] = useState('');
 
   // Étape 3 : Photo de profil
   const [photoUrl, setPhotoUrl] = useState<string>('');
@@ -262,6 +273,13 @@ export const RegistrationModal: React.FC<RegistrationModalProps> = ({
         medicalDetails: hasMedicalCondition ? medicalDetails.trim() : undefined,
         schoolLevel: activeTab === 'seminariste' ? schoolLevel : undefined,
         photoUrl: photoUrl || undefined,
+
+        // Responsabilités AEEMCI & Orientation Pédagogique
+        isExecutiveMember: activeTab === 'seminariste' ? isExecutiveMember : false,
+        executiveRole: activeTab === 'seminariste' && isExecutiveMember ? executiveRole : undefined,
+        executiveStructure: activeTab === 'seminariste' && isExecutiveMember ? executiveStructure.trim() : undefined,
+        assignedLevel: activeTab === 'seminariste' && isExecutiveMember ? 'Responsable de Base' : undefined,
+        assignedClass: activeTab === 'seminariste' && isExecutiveMember ? 'Responsable de Base' : undefined,
 
         // Polo
         hasPolo: wantsPolo,
@@ -738,6 +756,74 @@ export const RegistrationModal: React.FC<RegistrationModalProps> = ({
                             </option>
                           ))}
                         </select>
+                      </div>
+
+                      {/* STATUT MEMBRE DU BUREAU AEEMCI (RESPONSABLE DE BASE) */}
+                      <div className="bg-[#FFF5F0] border-2 border-orange-200 rounded-xl p-4 space-y-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <label className="flex items-start gap-2.5 cursor-pointer select-none">
+                            <input
+                              type="checkbox"
+                              checked={isExecutiveMember}
+                              onChange={e => setIsExecutiveMember(e.target.checked)}
+                              className="w-4 h-4 text-[#F97316] rounded border-orange-300 focus:ring-[#F97316] mt-0.5"
+                            />
+                            <div>
+                              <span className="text-sm font-bold text-[#1F2937] block">
+                                Êtes-vous membre d'un bureau AEEMCI ?
+                              </span>
+                              <span className="text-[11px] text-gray-500">
+                                Section d'établissement, Sous-comité ou Secrétariat Régional
+                              </span>
+                            </div>
+                          </label>
+                          <span className="text-[10px] font-black uppercase px-2 py-0.5 bg-orange-200 text-orange-900 rounded-full shrink-0">
+                            Responsable
+                          </span>
+                        </div>
+
+                        {isExecutiveMember && (
+                          <div className="pt-3 border-t border-orange-200/80 space-y-3 animate-in fade-in duration-200">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              <div>
+                                <label className="block text-[11px] font-bold text-gray-700 mb-1">
+                                  Fonction occupée dans le bureau
+                                </label>
+                                <select
+                                  value={executiveRole}
+                                  onChange={e => setExecutiveRole(e.target.value)}
+                                  className="w-full h-9 px-3 bg-white border border-orange-300 rounded-lg text-xs font-semibold text-gray-800 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                >
+                                  <option value="Président(e)">Président(e) de section</option>
+                                  <option value="Secrétaire Général(e)">Secrétaire Général(e)</option>
+                                  <option value="Trésorier(e)">Trésorier(e) Général(e)</option>
+                                  <option value="Chargé(e) Pédagogique">Chargé(e) des Cours & Pédagogie</option>
+                                  <option value="Secrétaire à l'Organisation">Secrétaire à l'Organisation</option>
+                                  <option value="Secrétaire aux Affaires Féminines">Secrétaire aux Affaires Féminines</option>
+                                  <option value="Membre de Bureau Sous-comité">Membre de bureau Sous-comité</option>
+                                  <option value="Autre responsabilité">Autre responsabilité</option>
+                                </select>
+                              </div>
+
+                              <div>
+                                <label className="block text-[11px] font-bold text-gray-700 mb-1">
+                                  Nom de la section / établissement
+                                </label>
+                                <input
+                                  type="text"
+                                  value={executiveStructure}
+                                  onChange={e => setExecutiveStructure(e.target.value)}
+                                  placeholder="ex: Section Lycée Moderne 1 Gagnoa"
+                                  className="w-full h-9 px-3 bg-white border border-orange-300 rounded-lg text-xs text-gray-800 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                />
+                              </div>
+                            </div>
+
+                            <div className="p-2.5 rounded-lg bg-orange-100/60 border border-orange-300 text-[11px] text-orange-950 font-medium">
+                              ✨ <strong>Orientation Automatique :</strong> En tant que membre de bureau, vous serez directement affecté au <strong>Niveau Responsable de Base</strong> afin de bénéficier de la formation managériale et leadership islamique du SERFIG 2027.
+                            </div>
+                          </div>
+                        )}
                       </div>
 
                       {/* BOÎTE POLO (fond #F9FAFB, bordure grise) */}
