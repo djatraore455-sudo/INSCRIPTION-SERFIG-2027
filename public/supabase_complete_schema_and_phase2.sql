@@ -96,7 +96,17 @@ CREATE TABLE IF NOT EXISTS participants (
     checked_in BOOLEAN DEFAULT false,
     checked_in_at TIMESTAMPTZ,
     registered_at TIMESTAMPTZ DEFAULT NOW(),
-    notes TEXT
+    notes TEXT,
+    -- Pédagogie & Évaluation (SERFIG 2027)
+    is_executive_member BOOLEAN DEFAULT false,
+    executive_role VARCHAR(100),
+    executive_structure VARCHAR(150),
+    entry_test_score NUMERIC(4,2),
+    entry_test_passed_at TIMESTAMPTZ,
+    assigned_level VARCHAR(50),
+    assigned_class VARCHAR(50),
+    assigned_room VARCHAR(50),
+    grades JSONB
 );
 
 -- Colonnes de sécurité participants si la table existait déjà
@@ -125,6 +135,16 @@ ALTER TABLE participants ADD COLUMN IF NOT EXISTS payment_reference VARCHAR(100)
 ALTER TABLE participants ADD COLUMN IF NOT EXISTS checked_in BOOLEAN DEFAULT false;
 ALTER TABLE participants ADD COLUMN IF NOT EXISTS checked_in_at TIMESTAMPTZ;
 ALTER TABLE participants ADD COLUMN IF NOT EXISTS notes TEXT;
+-- Colonnes Pédagogiques & Bulletins de notes
+ALTER TABLE participants ADD COLUMN IF NOT EXISTS is_executive_member BOOLEAN DEFAULT false;
+ALTER TABLE participants ADD COLUMN IF NOT EXISTS executive_role VARCHAR(100);
+ALTER TABLE participants ADD COLUMN IF NOT EXISTS executive_structure VARCHAR(150);
+ALTER TABLE participants ADD COLUMN IF NOT EXISTS entry_test_score NUMERIC(4,2);
+ALTER TABLE participants ADD COLUMN IF NOT EXISTS entry_test_passed_at TIMESTAMPTZ;
+ALTER TABLE participants ADD COLUMN IF NOT EXISTS assigned_level VARCHAR(50);
+ALTER TABLE participants ADD COLUMN IF NOT EXISTS assigned_class VARCHAR(50);
+ALTER TABLE participants ADD COLUMN IF NOT EXISTS assigned_room VARCHAR(50);
+ALTER TABLE participants ADD COLUMN IF NOT EXISTS grades JSONB;
 
 -- 4. TABLE DES PAIEMENTS
 CREATE TABLE IF NOT EXISTS payments (
@@ -425,6 +445,75 @@ BEGIN
 END;
 $$;
 
+-- E. Attribution automatique du Niveau Pédagogique (Trigger PostgreSQL)
+CREATE OR REPLACE FUNCTION trg_auto_assign_pedagogical_level()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- Règle 1: Membre de bureau (Section / Sous-comité) -> Responsable de Base
+    IF NEW.participant_type = 'seminariste' AND (NEW.is_executive_member = true OR (NEW.executive_role IS NOT NULL AND NEW.executive_role <> '')) THEN
+        IF NEW.assigned_level IS NULL OR NEW.assigned_level = '' THEN
+            NEW.assigned_level := 'Responsable de Base';
+        END IF;
+    -- Règle 2: En fonction de la note au test d'entrée
+    ELSIF NEW.entry_test_score IS NOT NULL THEN
+        IF NEW.assigned_level IS NULL OR NEW.assigned_level = '' THEN
+            IF NEW.entry_test_score >= 14 THEN
+                NEW.assigned_level := 'Niveau 3';
+            ELSIF NEW.entry_test_score >= 10 THEN
+                NEW.assigned_level := 'Niveau 2';
+            ELSE
+                NEW.assigned_level := 'Niveau 1';
+            END IF;
+        END IF;
+    END IF;
+
+    -- Par défaut, si la classe n'est pas encore ventilée par salle, la classe hérite du niveau
+    IF (NEW.assigned_class IS NULL OR NEW.assigned_class = '') AND NEW.assigned_level IS NOT NULL THEN
+        NEW.assigned_class := NEW.assigned_level;
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_participants_pedagogical_level ON participants;
+CREATE TRIGGER trg_participants_pedagogical_level
+BEFORE INSERT OR UPDATE OF entry_test_score, is_executive_member, executive_role ON participants
+FOR EACH ROW
+EXECUTE FUNCTION trg_auto_assign_pedagogical_level();
+
+-- F. Batch RPC pour l'affectation en masse des salles et classes
+CREATE OR REPLACE FUNCTION admin_batch_assign_rooms(
+    p_allocations JSONB
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+    item JSONB;
+    v_count INTEGER := 0;
+BEGIN
+    FOR item IN SELECT * FROM jsonb_array_elements(p_allocations)
+    LOOP
+        UPDATE participants
+        SET 
+            assigned_level = COALESCE(item->>'assigned_level', assigned_level),
+            assigned_class = COALESCE(item->>'assigned_class', assigned_class),
+            assigned_room = COALESCE(item->>'assigned_room', assigned_room),
+            grades = CASE 
+                WHEN item ? 'grades' THEN item->'grades' 
+                ELSE grades 
+            END
+        WHERE matricule = item->>'matricule' OR id::TEXT = item->>'id';
+        
+        v_count := v_count + 1;
+    END LOOP;
+
+    RETURN jsonb_build_object('success', true, 'updated_count', v_count);
+END;
+$$;
+
 -- ==============================================================================
 -- 10. POLITIQUES RLS (ROW LEVEL SECURITY)
 -- ==============================================================================
@@ -467,6 +556,20 @@ CREATE POLICY "Public read dormitories" ON dormitories FOR SELECT USING (true);
 CREATE POLICY "Public read seminar_schedule" ON seminar_schedule FOR SELECT USING (true);
 CREATE POLICY "Public insert participants" ON participants FOR INSERT WITH CHECK (true);
 CREATE POLICY "Public read participants" ON participants FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Public update participants" ON participants;
+CREATE POLICY "Public update participants" ON participants FOR UPDATE USING (true) WITH CHECK (true);
+
+-- Permissions de base pour les rôles PostgreSQL anon et authenticated
+GRANT USAGE ON SCHEMA public TO anon, authenticated;
+GRANT ALL ON ALL TABLES IN SCHEMA public TO postgres, service_role;
+GRANT SELECT, INSERT, UPDATE ON TABLE participants TO anon, authenticated;
+GRANT SELECT, INSERT ON TABLE payments TO anon, authenticated;
+GRANT SELECT, INSERT ON TABLE attendance TO anon, authenticated;
+GRANT SELECT ON TABLE seminar_config TO anon, authenticated;
+GRANT SELECT ON TABLE sub_committees TO anon, authenticated;
+GRANT SELECT ON TABLE dormitories TO anon, authenticated;
+GRANT SELECT ON TABLE seminar_schedule TO anon, authenticated;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated;
 
 -- Politiques administrateurs
 CREATE POLICY "Admin full participants" ON participants FOR ALL USING (am_i_admin());

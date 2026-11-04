@@ -34,13 +34,15 @@ interface AdminCertificatesProps {
   config: SeminarConfig;
   userEmail: string;
   onUpdateParticipant?: (updated: Participant) => void;
+  onBatchUpdateParticipants?: (updatedList: Participant[]) => void;
 }
 
 export const AdminCertificates: React.FC<AdminCertificatesProps> = ({
   participants,
   config,
   userEmail,
-  onUpdateParticipant
+  onUpdateParticipant,
+  onBatchUpdateParticipants
 }) => {
   const [activeSubTab, setActiveSubTab] = useState<'orientation' | 'bulletins' | 'attestations' | 'bilan'>('orientation');
   
@@ -333,6 +335,7 @@ export const AdminCertificates: React.FC<AdminCertificatesProps> = ({
           participants={participants}
           config={config}
           onUpdateParticipant={onUpdateParticipant}
+          onBatchUpdateParticipants={onBatchUpdateParticipants}
         />
       )}
 

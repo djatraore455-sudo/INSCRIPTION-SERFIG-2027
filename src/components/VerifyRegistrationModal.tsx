@@ -3,13 +3,13 @@ import { Participant, SeminarConfig } from '../types';
 import { getParticipants, updateParticipantStatus } from '../services/storage';
 import { BadgeCard } from './BadgeCard';
 import { RegistrationReceipt } from './RegistrationReceipt';
-import { Search, X, CheckCircle, Clock, AlertTriangle, CreditCard, FileText, IdCard, Sparkles } from 'lucide-react';
+import { Search, X, CheckCircle, Clock, AlertTriangle, CreditCard, FileText, IdCard, Sparkles, GraduationCap } from 'lucide-react';
 
 interface VerifyRegistrationModalProps {
   isOpen: boolean;
   onClose: () => void;
   config: SeminarConfig;
-  onOpenParticipantSpace?: (participant: Participant) => void;
+  onOpenParticipantSpace?: (participant: Participant, initialTab?: 'receipt' | 'badge' | 'attendance' | 'bulletin' | 'test') => void;
 }
 
 export const VerifyRegistrationModal: React.FC<VerifyRegistrationModalProps> = ({
@@ -218,19 +218,37 @@ export const VerifyRegistrationModal: React.FC<VerifyRegistrationModalProps> = (
                       </button>
                     </div>
 
-                    {onOpenParticipantSpace && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          onClose();
-                          onOpenParticipantSpace(foundParticipant);
-                        }}
-                        className="px-3.5 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-sm flex items-center gap-1.5"
-                      >
-                        <Sparkles className="w-3.5 h-3.5" />
-                        <span>Ouvrir l'Espace Séminariste</span>
-                      </button>
-                    )}
+                    <div className="flex flex-wrap items-center gap-2">
+                      {onOpenParticipantSpace && foundParticipant.type === 'seminariste' && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onClose();
+                            onOpenParticipantSpace(foundParticipant, 'test');
+                          }}
+                          className="px-3.5 py-1.5 bg-[#0b5334] hover:bg-[#073923] text-white rounded-xl text-xs font-black transition-all cursor-pointer shadow-sm flex items-center gap-1.5 active:scale-95"
+                        >
+                          <GraduationCap className="w-3.5 h-3.5 text-amber-300" />
+                          <span>
+                            {foundParticipant.entryTestScore !== undefined ? 'Voir Résultat du Test' : '📝 Passer le Test d\'Entrée'}
+                          </span>
+                        </button>
+                      )}
+
+                      {onOpenParticipantSpace && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onClose();
+                            onOpenParticipantSpace(foundParticipant, 'receipt');
+                          }}
+                          className="px-3.5 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-sm flex items-center gap-1.5"
+                        >
+                          <Sparkles className="w-3.5 h-3.5" />
+                          <span>Espace Séminariste</span>
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   {/* Document View */}

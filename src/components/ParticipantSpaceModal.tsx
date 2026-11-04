@@ -3,6 +3,7 @@ import { Participant, SeminarConfig } from '../types';
 import { RegistrationReceipt } from './RegistrationReceipt';
 import { BadgeCard } from './BadgeCard';
 import { SeminaristReportCard } from './SeminaristReportCard';
+import { OnlineEntryTest } from './OnlineEntryTest';
 import { AeemciLogo } from './AeemciLogo';
 import { 
   X, 
@@ -21,7 +22,8 @@ import {
   Share2, 
   Sparkles,
   ChevronRight,
-  Award
+  Award,
+  GraduationCap
 } from 'lucide-react';
 import { updateParticipantStatus, calculateAge } from '../services/storage';
 
@@ -31,6 +33,7 @@ interface ParticipantSpaceModalProps {
   isOpen: boolean;
   onClose: () => void;
   onUpdateParticipant?: (updated: Participant) => void;
+  initialTab?: 'receipt' | 'badge' | 'attendance' | 'bulletin' | 'test' | 'guide';
 }
 
 export const ParticipantSpaceModal: React.FC<ParticipantSpaceModalProps> = ({
@@ -38,10 +41,11 @@ export const ParticipantSpaceModal: React.FC<ParticipantSpaceModalProps> = ({
   config,
   isOpen,
   onClose,
-  onUpdateParticipant
+  onUpdateParticipant,
+  initialTab = 'receipt'
 }) => {
   const [participant, setParticipant] = useState<Participant>(initialParticipant);
-  const [activeTab, setActiveTab] = useState<'receipt' | 'badge' | 'attendance' | 'bulletin' | 'guide'>('receipt');
+  const [activeTab, setActiveTab] = useState<'receipt' | 'badge' | 'attendance' | 'bulletin' | 'test' | 'guide'>(initialTab);
   const [copiedLink, setCopiedLink] = useState(false);
 
   if (!isOpen) return null;
@@ -168,10 +172,60 @@ export const ParticipantSpaceModal: React.FC<ParticipantSpaceModalProps> = ({
               </span>
             </div>
           </div>
+
+          {/* Bannière d'appel au Test d'Entrée si non encore passé */}
+          {participant.type === 'seminariste' && participant.entryTestScore === undefined && (
+            <div className="mt-3 p-3.5 rounded-2xl bg-gradient-to-r from-orange-500 to-amber-500 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-md border border-white/20 animate-in fade-in">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-white/20 backdrop-blur-xs flex items-center justify-center shrink-0">
+                  <GraduationCap className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <span className="font-black text-xs sm:text-sm block">
+                    📝 Test d'Entrée & Positionnement en Ligne (Jour 1)
+                  </span>
+                  <span className="text-[11px] text-orange-100">
+                    Passez votre QCM officiel (20 questions / 20 points) pour obtenir immédiatement votre Niveau et votre Salle de cours !
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveTab('test')}
+                className="px-4 py-2 rounded-xl bg-white text-orange-900 hover:bg-orange-50 font-black text-xs transition-all shrink-0 cursor-pointer shadow-sm active:scale-95 flex items-center justify-center gap-1.5"
+              >
+                <span>Commencer le Test Maintenant</span>
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Tab Navigation */}
         <div className="bg-slate-100 border-b border-slate-200 px-4 sm:px-6 flex items-center gap-2 overflow-x-auto shrink-0 py-2">
+          {participant.type === 'seminariste' && (
+            <button
+              onClick={() => setActiveTab('test')}
+              className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-extrabold flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
+                activeTab === 'test'
+                  ? 'bg-white text-emerald-900 shadow-sm border border-slate-200 ring-2 ring-emerald-600/20'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+              }`}
+            >
+              <GraduationCap className="w-4 h-4 text-emerald-700" />
+              <span>Test d'Entrée & Niveau</span>
+              {participant.entryTestScore !== undefined ? (
+                <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-black">
+                  {participant.entryTestScore}/20
+                </span>
+              ) : (
+                <span className="px-2 py-0.5 rounded-full bg-orange-500 text-white text-[10px] font-black animate-pulse">
+                  À passer
+                </span>
+              )}
+            </button>
+          )}
+
           <button
             onClick={() => setActiveTab('receipt')}
             className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-extrabold flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
@@ -225,6 +279,18 @@ export const ParticipantSpaceModal: React.FC<ParticipantSpaceModalProps> = ({
 
         {/* Tab Content Body */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-slate-50 flex flex-col items-center">
+          {activeTab === 'test' && participant.type === 'seminariste' && (
+            <div className="w-full flex flex-col items-center py-2">
+              <OnlineEntryTest
+                participant={participant}
+                config={config}
+                onTestCompleted={handleUpdate}
+                onViewBulletin={() => setActiveTab('bulletin')}
+                onViewBadge={() => setActiveTab('badge')}
+              />
+            </div>
+          )}
+
           {activeTab === 'receipt' && (
             <div className="w-full flex flex-col items-center">
               <RegistrationReceipt

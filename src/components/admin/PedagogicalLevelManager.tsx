@@ -19,7 +19,10 @@ import {
   ShieldAlert,
   HelpCircle,
   Clock,
-  Check
+  Check,
+  QrCode,
+  ExternalLink,
+  Globe
 } from 'lucide-react';
 
 interface PedagogicalLevelManagerProps {
@@ -338,6 +341,18 @@ export const PedagogicalLevelManager: React.FC<PedagogicalLevelManagerProps> = (
             >
               <DoorOpen className="w-4 h-4" />
               <span>Salles & Découpage (A, B, C)</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('online-test')}
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                activeTab === 'online-test'
+                  ? 'bg-[#0b5334] text-white shadow-xs'
+                  : 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200'
+              }`}
+            >
+              <Globe className="w-4 h-4 text-amber-300" />
+              <span>Suivi Test en Ligne (J1)</span>
             </button>
 
             <button
@@ -781,6 +796,211 @@ export const PedagogicalLevelManager: React.FC<PedagogicalLevelManagerProps> = (
 
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* ─── SOUS-ONGLET 4 : SUIVI DES TESTS EN LIGNE (JOUR 1) ──────── */}
+      {activeTab === 'online-test' && (
+        <div className="space-y-6">
+          {/* Cartes statistiques temps réel du Test en ligne */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+              <span className="text-[11px] font-bold text-slate-500 block">Total Séminaristes</span>
+              <p className="text-2xl font-black text-slate-900 mt-0.5">{seminaristes.length}</p>
+              <span className="text-[10px] text-slate-400">Inscrits officiels</span>
+            </div>
+
+            <div className="bg-white p-4 rounded-2xl border border-emerald-200 shadow-xs bg-emerald-50/30">
+              <span className="text-[11px] font-bold text-emerald-800 block">Tests Complétés en Ligne</span>
+              <p className="text-2xl font-black text-emerald-700 mt-0.5">
+                {seminaristes.filter(p => p.entryTestScore !== undefined).length}
+              </p>
+              <span className="text-[10px] text-emerald-600 font-bold">
+                {seminaristes.length > 0 
+                  ? Math.round((seminaristes.filter(p => p.entryTestScore !== undefined).length / seminaristes.length) * 100) 
+                  : 0}% de participation
+              </span>
+            </div>
+
+            <div className="bg-white p-4 rounded-2xl border border-orange-200 shadow-xs bg-orange-50/30">
+              <span className="text-[11px] font-bold text-orange-800 block">En Attente de Passage</span>
+              <p className="text-2xl font-black text-orange-600 mt-0.5">
+                {seminaristes.filter(p => p.entryTestScore === undefined).length}
+              </p>
+              <span className="text-[10px] text-orange-700">À orienter au portail</span>
+            </div>
+
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+              <span className="text-[11px] font-bold text-slate-500 block">Moyenne Générale Test</span>
+              <p className="text-2xl font-black text-indigo-700 mt-0.5">
+                {(() => {
+                  const tested = seminaristes.filter(p => p.entryTestScore !== undefined);
+                  if (tested.length === 0) return '—';
+                  const sum = tested.reduce((acc, curr) => acc + (curr.entryTestScore || 0), 0);
+                  return (sum / tested.length).toFixed(1) + ' / 20';
+                })()}
+              </p>
+              <span className="text-[10px] text-slate-400">Barème officiel 20 pts</span>
+            </div>
+          </div>
+
+          {/* Bannière Affiche & QR Code d'Accès pour le Jour 1 */}
+          <div className="bg-gradient-to-r from-[#0b5334] to-emerald-950 text-white rounded-3xl p-6 shadow-md border border-emerald-800 flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="space-y-2 text-center md:text-left">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-200 text-xs font-black uppercase">
+                <QrCode className="w-4 h-4 text-emerald-300" />
+                Affichage d'Accueil • Jour 1
+              </div>
+              <h3 className="text-xl font-black text-white">
+                Portail du Test d'Entrée en Ligne pour les Séminaristes
+              </h3>
+              <p className="text-xs text-emerald-100/90 max-w-xl leading-relaxed">
+                Le jour de l'arrivée, les séminaristes scannent le QR Code ou accèdent avec leur matricule. Ils passent le QCM sur leur smartphone, découvrent leur niveau et sont directement dirigés vers leur salle.
+              </p>
+              <div className="pt-2 flex flex-wrap items-center gap-2">
+                <code className="text-[11px] font-mono bg-black/30 px-3 py-1.5 rounded-xl text-emerald-200 border border-white/10 select-all">
+                  {window.location.origin}/?test=true
+                </code>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-center gap-3 shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard?.writeText(`${window.location.origin}/?test=true`);
+                  setSuccessMsg('Lien du test d\'entrée copié dans le presse-papier !');
+                  setTimeout(() => setSuccessMsg(''), 3000);
+                }}
+                className="px-4 py-2.5 rounded-xl bg-white/15 hover:bg-white/25 text-white font-bold text-xs transition-colors cursor-pointer border border-white/20"
+              >
+                Copier le lien direct
+              </button>
+
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="px-5 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-500 text-white font-black text-xs shadow-md transition-all flex items-center gap-2 cursor-pointer active:scale-95"
+              >
+                <Printer className="w-4 h-4" />
+                <span>Imprimer Affiche QR Code</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Tableau des Résultats en direct */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="p-4 bg-slate-50 border-b border-slate-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div>
+                <h4 className="font-black text-slate-900 text-sm">
+                  Résultats des Tests d'Entrée Enregistrés ({seminaristes.filter(p => p.entryTestScore !== undefined).length})
+                </h4>
+                <p className="text-[11px] text-slate-500">
+                  Notes enregistrées en temps réel dans Supabase.
+                </p>
+              </div>
+
+              {/* Recherche */}
+              <div className="relative w-full sm:w-64">
+                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Filtrer un candidat..."
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  className="w-full pl-9 pr-3 py-1.5 bg-white border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-orange-500"
+                />
+              </div>
+            </div>
+
+            <div className="divide-y divide-slate-100 max-h-[500px] overflow-y-auto">
+              {seminaristes
+                .filter(p => {
+                  if (searchQuery.trim()) {
+                    const q = searchQuery.toLowerCase();
+                    return p.fullName.toLowerCase().includes(q) || p.matricule.toLowerCase().includes(q) || p.subCommittee.toLowerCase().includes(q);
+                  }
+                  return true;
+                })
+                .map(p => {
+                  const hasPassed = p.entryTestScore !== undefined && p.entryTestScore !== null;
+                  const score = p.entryTestScore || 0;
+                  const level = p.assignedLevel || (p.isExecutiveMember ? 'Responsable de Base' : score >= 14 ? 'Niveau 3' : score >= 10 ? 'Niveau 2' : 'Niveau 1');
+                  const room = p.assignedRoom || 'Non affecté';
+
+                  return (
+                    <div key={p.id} className="p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50 transition-colors text-xs">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-black text-xs shrink-0 ${
+                          hasPassed ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-400'
+                        }`}>
+                          {hasPassed ? '✓' : '⏳'}
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-black text-slate-900">{p.fullName}</span>
+                            <span className="font-mono text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">
+                              {p.matricule}
+                            </span>
+                            {p.isExecutiveMember && (
+                              <span className="px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-800 text-[10px] font-bold">
+                                Membre de bureau
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-[11px] text-slate-500">
+                            {p.subCommittee}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-4 shrink-0 self-end sm:self-center">
+                        {hasPassed ? (
+                          <>
+                            <div className="text-right">
+                              <span className="text-base font-black text-amber-600 font-mono">
+                                {score.toFixed(score % 1 === 0 ? 0 : 1)} / 20
+                              </span>
+                              <span className="text-[10px] text-slate-400 block">Note obtenue</span>
+                            </div>
+
+                            <div className="text-right">
+                              <span className="px-2.5 py-1 rounded-lg text-[11px] font-black bg-emerald-100 text-emerald-800 block">
+                                {level}
+                              </span>
+                              <span className="text-[10px] text-slate-500 font-medium block mt-0.5">
+                                📍 {room}
+                              </span>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                handleScoreChange(p, 0);
+                                updateParticipantStatus(p.id, {
+                                  entryTestScore: undefined,
+                                  entryTestPassedAt: undefined
+                                });
+                                setSuccessMsg(`Test réinitialisé pour ${p.fullName}.`);
+                                setTimeout(() => setSuccessMsg(''), 3000);
+                              }}
+                              className="text-[10px] text-slate-400 hover:text-red-600 transition-colors cursor-pointer p-1"
+                              title="Réinitialiser pour permettre un repassage"
+                            >
+                              Réinitialiser
+                            </button>
+                          </>
+                        ) : (
+                          <span className="px-3 py-1 rounded-full bg-orange-100 text-orange-800 text-[11px] font-bold">
+                            En attente de passage
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
           </div>
         </div>
       )}

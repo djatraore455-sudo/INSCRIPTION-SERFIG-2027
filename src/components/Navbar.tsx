@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { SeminarConfig } from '../types';
 import { AeemciLogo } from './AeemciLogo';
-import { LayoutDashboard, Menu, X, UserCheck, Calendar, Sparkles, HeartHandshake, FileText } from 'lucide-react';
+import { LayoutDashboard, Menu, X, UserCheck, Calendar, Sparkles, HeartHandshake, FileText, GraduationCap } from 'lucide-react';
 import { PWAInstallButton } from './PWAInstallButton';
 
 interface NavbarProps {
@@ -11,6 +11,7 @@ interface NavbarProps {
   onOpenAdmin: () => void;
   onOpenSponsor: () => void;
   onOpenParticipantSpace?: () => void;
+  onOpenTest?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -19,7 +20,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenVerify,
   onOpenAdmin,
   onOpenSponsor,
-  onOpenParticipantSpace
+  onOpenParticipantSpace,
+  onOpenTest
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -43,6 +45,16 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         {/* Right: Actions */}
         <div className="flex items-center gap-2 sm:gap-3">
+          {/* Direct link to Online Entry Test (Jour 1) */}
+          <button
+            onClick={onOpenTest || onOpenParticipantSpace || onOpenVerify}
+            className="hidden md:inline-flex items-center gap-1.5 px-3 py-2 text-xs font-black text-white bg-[#0b5334] hover:bg-[#073b25] rounded-xl transition-all shadow-xs cursor-pointer active:scale-95 border border-emerald-700/50"
+            title="Passer mon Test de Positionnement QCM en Ligne (Jour 1)"
+          >
+            <GraduationCap className="w-4 h-4 text-amber-300" />
+            <span>Test d'Entrée</span>
+          </button>
+
           {/* Direct link to Reçu & Espace Séminariste (desktop) */}
           <button
             onClick={onOpenParticipantSpace || onOpenVerify}
@@ -120,6 +132,19 @@ export const Navbar: React.FC<NavbarProps> = ({
               <Calendar className="w-4 h-4 text-slate-600" />
               <span>Programme des 6 Jours (Gagnoa)</span>
             </a>
+
+            <button
+              onClick={() => {
+                setMobileMenuOpen(false);
+                if (onOpenTest) onOpenTest();
+                else if (onOpenParticipantSpace) onOpenParticipantSpace();
+                else onOpenVerify();
+              }}
+              className="p-3 bg-[#0b5334] hover:bg-[#073b25] text-white rounded-xl text-left font-black text-xs transition-all cursor-pointer flex items-center gap-2 shadow-sm col-span-full"
+            >
+              <GraduationCap className="w-4 h-4 text-amber-300" />
+              <span>📝 Passer mon Test d'Entrée (Jour 1)</span>
+            </button>
 
             <button
               onClick={() => {

@@ -66,6 +66,7 @@ import { AdminMedical } from './admin/AdminMedical';
 import { AdminSchedule } from './admin/AdminSchedule';
 import { AdminActivityLogs } from './admin/AdminActivityLogs';
 import { AdminCertificates } from './admin/AdminCertificates';
+import { BatchBadgesPrint } from './admin/BatchBadgesPrint';
 import { PWAInstallButton } from './PWAInstallButton';
 
 interface AdminPageProps {
@@ -111,7 +112,19 @@ function mapDbRowToParticipant(row: any): Participant {
     checkedIn: Boolean(row.checked_in ?? row.checkedIn),
     checkedInAt: row.checked_in_at || row.checkedInAt || undefined,
     registeredAt: row.registered_at || row.registeredAt || new Date().toISOString(),
-    notes: row.notes || undefined
+    notes: row.notes || undefined,
+
+    // Responsabilités AEEMCI & Orientation Pédagogique Supabase
+    isExecutiveMember: Boolean(row.is_executive_member ?? row.isExecutiveMember ?? false),
+    executiveRole: row.executive_role || row.executiveRole || undefined,
+    executiveStructure: row.executive_structure || row.executiveStructure || undefined,
+    entryTestScore: row.entry_test_score !== null && row.entry_test_score !== undefined 
+      ? Number(row.entry_test_score) 
+      : (row.entryTestScore !== undefined ? Number(row.entryTestScore) : undefined),
+    assignedLevel: row.assigned_level || row.assignedLevel || undefined,
+    assignedClass: row.assigned_class || row.assignedClass || undefined,
+    assignedRoom: row.assigned_room || row.assignedRoom || undefined,
+    grades: row.grades ? (typeof row.grades === 'string' ? JSON.parse(row.grades) : row.grades) : undefined
   };
 }
 
@@ -463,6 +476,8 @@ export const AdminPage: React.FC<AdminPageProps> = ({
   const [selectedParticipantForEdit, setSelectedParticipantForEdit] = useState<Participant | null>(null);
   const [selectedParticipantForBadge, setSelectedParticipantForBadge] = useState<Participant | null>(null);
   const [selectedParticipantForReceipt, setSelectedParticipantForReceipt] = useState<Participant | null>(null);
+  const [isBatchBadgesPrintOpen, setIsBatchBadgesPrintOpen] = useState(false);
+  const [batchBadgesInitialId, setBatchBadgesInitialId] = useState<string | undefined>(undefined);
   const [isAddParticipantModalOpen, setIsAddParticipantModalOpen] = useState(false);
   const [cashPaymentParticipant, setCashPaymentParticipant] = useState<Participant | null>(null);
   const [cashPaymentNote, setCashPaymentNote] = useState('');
@@ -2467,12 +2482,26 @@ export const AdminPage: React.FC<AdminPageProps> = ({
                       </td>
                       <td className="py-3 px-3 text-slate-600">{p.dormitory || '—'}</td>
                       <td className="py-3 px-4 text-right">
-                        <button
-                          onClick={() => setSelectedParticipantForDetail(p)}
-                          className="px-3 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-colors cursor-pointer"
-                        >
-                          Détails
-                        </button>
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            onClick={() => {
+                              setBatchBadgesInitialId(p.id);
+                              setIsBatchBadgesPrintOpen(true);
+                              setActiveTab('printables');
+                            }}
+                            className="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 font-bold text-xs transition-colors cursor-pointer flex items-center gap-1"
+                            title="Imprimer le badge (format économique 4/feuille ou individuel pour retardataire)"
+                          >
+                            <QrCode className="w-3.5 h-3.5 text-emerald-700" />
+                            <span>Badge</span>
+                          </button>
+                          <button
+                            onClick={() => setSelectedParticipantForDetail(p)}
+                            className="px-3 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-colors cursor-pointer"
+                          >
+                            Détails
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -3098,154 +3127,185 @@ export const AdminPage: React.FC<AdminPageProps> = ({
 
         {/* ─── ONGLET 7 : LISTES À IMPRIMER A4 (STEP 8) ─────────────── */}
         {activeTab === 'printables' && (
-          <div className="space-y-6 animate-in fade-in duration-200">
-            <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-              <h3 className="text-base font-bold text-slate-900">Listes Officielles à Imprimer (Format A4)</h3>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Pages optimisées avec le logo homologué, titre, colonnes de signatures et mise en page d'impression.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {/* 1. Émargement par sous-comité */}
-              <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-3 flex flex-col justify-between">
+          isBatchBadgesPrintOpen ? (
+            <BatchBadgesPrint
+              participants={participants}
+              config={config}
+              initialSelectedId={batchBadgesInitialId}
+              onBack={() => {
+                setIsBatchBadgesPrintOpen(false);
+                setBatchBadgesInitialId(undefined);
+              }}
+            />
+          ) : (
+            <div className="space-y-6 animate-in fade-in duration-200">
+              <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                  <div className="w-10 h-10 rounded-lg bg-orange-100 text-orange-600 flex items-center justify-center mb-3">
-                    <Printer className="w-5 h-5" />
-                  </div>
-                  <h4 className="font-bold text-slate-900 text-sm">Feuilles d'Émargement</h4>
-                  <p className="text-xs text-slate-500 mt-1">
-                    Listes par sous-comité avec colonne signature pour le pointage des arrivées.
+                  <h3 className="text-base font-bold text-slate-900">Listes Officielles & Badges à Imprimer (Format A4)</h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Pages optimisées avec le logo homologué, titre, colonnes de signatures, bulletins SERFIG et planches économiques 4 badges / feuille RAM.
                   </p>
                 </div>
                 <button
-                  onClick={() => window.print()}
-                  className="w-full py-2.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs transition-colors cursor-pointer"
+                  onClick={() => {
+                    setBatchBadgesInitialId(undefined);
+                    setIsBatchBadgesPrintOpen(true);
+                  }}
+                  className="px-4 py-2 rounded-xl bg-purple-700 hover:bg-purple-800 text-white font-bold text-xs flex items-center justify-center gap-2 cursor-pointer shadow-xs shrink-0"
                 >
-                  Imprimer / PDF
+                  <QrCode className="w-4 h-4" />
+                  <span>Atelier Badges (4 / feuille & Individuel)</span>
                 </button>
               </div>
 
-              {/* 2. Liste par dortoir */}
-              <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-3 flex flex-col justify-between">
-                <div>
-                  <div className="w-10 h-10 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center mb-3">
-                    <Home className="w-5 h-5" />
-                  </div>
-                  <h4 className="font-bold text-slate-900 text-sm">Fiches Dortoirs</h4>
-                  <p className="text-xs text-slate-500 mt-1">
-                    Affichage porte de chaque dortoir avec liste des résidents et contacts d'urgence.
-                  </p>
-                </div>
-                <button
-                  onClick={() => window.print()}
-                  className="w-full py-2.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs transition-colors cursor-pointer"
-                >
-                  Imprimer / PDF
-                </button>
-              </div>
-
-              {/* 3. Liste de session */}
-              <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-3 flex flex-col justify-between">
-                <div>
-                  <div className="w-10 h-10 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center mb-3">
-                    <CheckCircle className="w-5 h-5" />
-                  </div>
-                  <h4 className="font-bold text-slate-900 text-sm">Pointage Session</h4>
-                  <p className="text-xs text-slate-500 mt-1">
-                    Présents et absents pour la date et session sélectionnées.
-                  </p>
-                </div>
-                <button
-                  onClick={() => window.print()}
-                  className="w-full py-2.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs transition-colors cursor-pointer"
-                >
-                  Imprimer / PDF
-                </button>
-              </div>
-
-              {/* 4. Planche de badges */}
-              <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-3 flex flex-col justify-between">
-                <div>
-                  <div className="w-10 h-10 rounded-lg bg-purple-100 text-purple-600 flex items-center justify-center mb-3">
-                    <QrCode className="w-5 h-5" />
-                  </div>
-                  <h4 className="font-bold text-slate-900 text-sm">Planche de Badges</h4>
-                  <p className="text-xs text-slate-500 mt-1">
-                    Impression groupée des badges participants pour plastification.
-                  </p>
-                </div>
-                <button
-                  onClick={() => window.print()}
-                  className="w-full py-2.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs transition-colors cursor-pointer"
-                >
-                  Imprimer / PDF
-                </button>
-              </div>
-
-              {/* 5. Bulletins de Note Officiels (Nouveau - Modèle SERFIG) */}
-              <div className="bg-gradient-to-br from-orange-50 to-amber-50 p-5 rounded-xl border-2 border-orange-300 shadow-xs space-y-3 flex flex-col justify-between sm:col-span-2 lg:col-span-4">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-xl bg-[#0b5334] text-[#f26315] flex items-center justify-center shrink-0 shadow-xs">
-                      <Award className="w-6 h-6 text-white" />
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* 1. Émargement par sous-comité */}
+                <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-3 flex flex-col justify-between">
+                  <div>
+                    <div className="w-10 h-10 rounded-lg bg-orange-100 text-orange-600 flex items-center justify-center mb-3">
+                      <Printer className="w-5 h-5" />
                     </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h4 className="font-black text-slate-900 text-sm sm:text-base">
-                          Bulletins de Note Officiels (SERFIG 2027)
-                        </h4>
-                        <span className="px-2 py-0.5 rounded-full bg-orange-200 text-orange-900 text-[10px] font-black uppercase">
-                          Modèle Homologué
-                        </span>
-                      </div>
-                      <p className="text-xs text-slate-600 mt-1">
-                        Format A4 conforme avec Test d'entrée, Test de Sortie, Conduite, Moyenne / 20 et Décision d'admission. Impression individuelle ou par lot complet en 1 clic.
-                      </p>
-                    </div>
+                    <h4 className="font-bold text-slate-900 text-sm">Feuilles d'Émargement</h4>
+                    <p className="text-xs text-slate-500 mt-1">
+                      Listes par sous-comité avec colonne signature pour le pointage des arrivées.
+                    </p>
                   </div>
                   <button
-                    onClick={() => setActiveTab('certificates')}
-                    className="px-5 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-500 text-white font-black text-xs transition-all shadow-md cursor-pointer shrink-0 active:scale-95 flex items-center justify-center gap-2"
+                    onClick={() => window.print()}
+                    className="w-full py-2.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs transition-colors cursor-pointer"
                   >
-                    <Award className="w-4 h-4 text-white" />
-                    <span>Gérer & Imprimer les Bulletins</span>
+                    Imprimer / PDF
                   </button>
                 </div>
-              </div>
 
-              {/* 6. Fiches d'Affichage Portes de Salles (Jour 1) */}
-              <div className="bg-gradient-to-br from-emerald-50 to-teal-50 p-5 rounded-xl border-2 border-emerald-300 shadow-xs space-y-3 flex flex-col justify-between sm:col-span-2 lg:col-span-4">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-xl bg-[#0b5334] text-white flex items-center justify-center shrink-0 shadow-xs">
-                      <DoorOpen className="w-6 h-6 text-white" />
+                {/* 2. Liste par dortoir */}
+                <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-3 flex flex-col justify-between">
+                  <div>
+                    <div className="w-10 h-10 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center mb-3">
+                      <Home className="w-5 h-5" />
                     </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h4 className="font-black text-slate-900 text-sm sm:text-base">
-                          Fiches d'Affichage Portes de Salles (Jour 1)
-                        </h4>
-                        <span className="px-2 py-0.5 rounded-full bg-emerald-200 text-emerald-900 text-[10px] font-black uppercase">
-                          Orientation J1
-                        </span>
-                      </div>
-                      <p className="text-xs text-slate-600 mt-1">
-                        Listes officielles d'affectation avec Nom, Prénom, Matricule, Sous-comité et Note du test d'entrée, prêtes à être imprimées en A4 et affichées devant chaque salle (Niveau 1A, 1B, 2, 3, Resp. de Base).
-                      </p>
-                    </div>
+                    <h4 className="font-bold text-slate-900 text-sm">Fiches Dortoirs</h4>
+                    <p className="text-xs text-slate-500 mt-1">
+                      Affichage porte de chaque dortoir avec liste des résidents et contacts d'urgence.
+                    </p>
                   </div>
                   <button
-                    onClick={() => setActiveTab('certificates')}
-                    className="px-5 py-2.5 rounded-xl bg-[#0b5334] hover:bg-emerald-900 text-white font-black text-xs transition-all shadow-md cursor-pointer shrink-0 active:scale-95 flex items-center justify-center gap-2"
+                    onClick={() => window.print()}
+                    className="w-full py-2.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs transition-colors cursor-pointer"
                   >
-                    <Printer className="w-4 h-4 text-white" />
-                    <span>Imprimer Fiches de Portes</span>
+                    Imprimer / PDF
                   </button>
+                </div>
+
+                {/* 3. Liste de session */}
+                <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-3 flex flex-col justify-between">
+                  <div>
+                    <div className="w-10 h-10 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center mb-3">
+                      <CheckCircle className="w-5 h-5" />
+                    </div>
+                    <h4 className="font-bold text-slate-900 text-sm">Pointage Session</h4>
+                    <p className="text-xs text-slate-500 mt-1">
+                      Présents et absents pour la date et session sélectionnées.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => window.print()}
+                    className="w-full py-2.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs transition-colors cursor-pointer"
+                  >
+                    Imprimer / PDF
+                  </button>
+                </div>
+
+                {/* 4. Planche de badges - Économique & Individuel */}
+                <div className="bg-white p-5 rounded-xl border-2 border-purple-200 shadow-xs space-y-3 flex flex-col justify-between relative overflow-hidden">
+                  <div className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-purple-100 text-purple-800 text-[10px] font-black uppercase">
+                    4 / RAM A4
+                  </div>
+                  <div>
+                    <div className="w-10 h-10 rounded-lg bg-purple-100 text-purple-600 flex items-center justify-center mb-3">
+                      <QrCode className="w-5 h-5" />
+                    </div>
+                    <h4 className="font-bold text-slate-900 text-sm">Planches de Badges & Individuels</h4>
+                    <p className="text-xs text-slate-500 mt-1">
+                      Grille économique 4 badges par feuille RAM A4 (économie 75% papier) ou impression unitaire pour retardataires du Jour 1 avec niveau assigné.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setBatchBadgesInitialId(undefined);
+                      setIsBatchBadgesPrintOpen(true);
+                    }}
+                    className="w-full py-2.5 rounded-lg bg-purple-700 hover:bg-purple-800 text-white font-bold text-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+                  >
+                    <QrCode className="w-4 h-4" />
+                    <span>Ouvrir l'Atelier Badges</span>
+                  </button>
+                </div>
+
+                {/* 5. Bulletins de Note Officiels (Nouveau - Modèle SERFIG) */}
+                <div className="bg-gradient-to-br from-orange-50 to-amber-50 p-5 rounded-xl border-2 border-orange-300 shadow-xs space-y-3 flex flex-col justify-between sm:col-span-2 lg:col-span-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-xl bg-[#0b5334] text-[#f26315] flex items-center justify-center shrink-0 shadow-xs">
+                        <Award className="w-6 h-6 text-white" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h4 className="font-black text-slate-900 text-sm sm:text-base">
+                            Bulletins de Note Officiels (SERFIG 2027)
+                          </h4>
+                          <span className="px-2 py-0.5 rounded-full bg-orange-200 text-orange-900 text-[10px] font-black uppercase">
+                            Modèle Homologué
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-600 mt-1">
+                          Format A4 conforme avec Test d'entrée, Test de Sortie, Conduite, Moyenne / 20 et Décision d'admission. Impression individuelle ou par lot complet en 1 clic.
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setActiveTab('certificates')}
+                      className="px-5 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-500 text-white font-black text-xs transition-all shadow-md cursor-pointer shrink-0 active:scale-95 flex items-center justify-center gap-2"
+                    >
+                      <Award className="w-4 h-4 text-white" />
+                      <span>Gérer & Imprimer les Bulletins</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* 6. Fiches d'Affichage Portes de Salles (Jour 1) */}
+                <div className="bg-gradient-to-br from-emerald-50 to-teal-50 p-5 rounded-xl border-2 border-emerald-300 shadow-xs space-y-3 flex flex-col justify-between sm:col-span-2 lg:col-span-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-xl bg-[#0b5334] text-white flex items-center justify-center shrink-0 shadow-xs">
+                        <DoorOpen className="w-6 h-6 text-white" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h4 className="font-black text-slate-900 text-sm sm:text-base">
+                            Fiches d'Affichage Portes de Salles (Jour 1)
+                          </h4>
+                          <span className="px-2 py-0.5 rounded-full bg-emerald-200 text-emerald-900 text-[10px] font-black uppercase">
+                            Orientation J1
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-600 mt-1">
+                          Listes officielles d'affectation avec Nom, Prénom, Matricule, Sous-comité et Note du test d'entrée, prêtes à être imprimées en A4 et affichées devant chaque salle (Niveau 1A, 1B, 2, 3, Resp. de Base).
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setActiveTab('certificates')}
+                      className="px-5 py-2.5 rounded-xl bg-[#0b5334] hover:bg-emerald-900 text-white font-black text-xs transition-all shadow-md cursor-pointer shrink-0 active:scale-95 flex items-center justify-center gap-2"
+                    >
+                      <Printer className="w-4 h-4 text-white" />
+                      <span>Imprimer Fiches de Portes</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
+          )
         )}
 
         {/* ─── ONGLET 8 : CONFIGURATION (STEP 9) ────────────────────── */}
@@ -3495,7 +3555,15 @@ export const AdminPage: React.FC<AdminPageProps> = ({
                     className="inline-flex items-center gap-1.5 px-3 py-2 bg-orange-600 hover:bg-orange-500 text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer"
                   >
                     <Download className="w-3.5 h-3.5" />
-                    <span>Télécharger le Fichier .SQL</span>
+                    <span>Script Global .SQL</span>
+                  </a>
+                  <a
+                    href="/supabase_migration_pedagogy_and_bulletins.sql"
+                    download="supabase_migration_pedagogy_and_bulletins.sql"
+                    className="inline-flex items-center gap-1.5 px-3 py-2 bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Migration Pédagogie & Notes .SQL</span>
                   </a>
                   <a
                     href="/supabase_complete_schema_and_phase2.sql"
@@ -3504,7 +3572,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({
                     className="inline-flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-bold text-xs rounded-xl transition-colors cursor-pointer"
                   >
                     <ExternalLink className="w-3.5 h-3.5" />
-                    <span>Ouvrir dans le navigateur</span>
+                    <span>Voir dans le navigateur</span>
                   </a>
                 </div>
               </div>
@@ -3571,6 +3639,10 @@ export const AdminPage: React.FC<AdminPageProps> = ({
             onUpdateParticipant={(updated) => {
               setParticipants(prev => prev.map(p => p.id === updated.id ? updated : p));
               updateParticipantStatus(updated.id, updated);
+            }}
+            onBatchUpdateParticipants={(updatedList) => {
+              const map = new Map(updatedList.map(u => [u.id, u]));
+              setParticipants(prev => prev.map(p => map.get(p.id) || p));
             }}
           />
         )}

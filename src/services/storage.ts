@@ -158,6 +158,14 @@ export function addParticipant(participantData: Omit<Participant, 'id' | 'matric
       commission: newParticipant.commission || null,
       trainer_subtype: newParticipant.trainerSubtype || null,
       wave_phone_number: newParticipant.wavePhoneNumber || null,
+      is_executive_member: newParticipant.isExecutiveMember ?? false,
+      executive_role: newParticipant.executiveRole || null,
+      executive_structure: newParticipant.executiveStructure || null,
+      entry_test_score: newParticipant.entryTestScore !== undefined ? newParticipant.entryTestScore : null,
+      assigned_level: newParticipant.assignedLevel || null,
+      assigned_class: newParticipant.assignedClass || null,
+      assigned_room: newParticipant.assignedRoom || null,
+      grades: newParticipant.grades || null,
       checked_in: false,
       registered_at: newParticipant.registeredAt
     };
@@ -184,8 +192,44 @@ export function addParticipant(participantData: Omit<Participant, 'id' | 'matric
 
 export function updateParticipantStatus(id: string, updates: Partial<Participant>): Participant[] {
   const participants = getParticipants();
-  const updated = participants.map(p => p.id === id ? { ...p, ...updates } : p);
+  const updated = participants.map(p => (p.id === id || p.matricule === id) ? { ...p, ...updates } : p);
   saveParticipants(updated);
+
+  // Sync avec Supabase
+  try {
+    const dbUpdates: any = {};
+    if (updates.isExecutiveMember !== undefined) dbUpdates.is_executive_member = updates.isExecutiveMember;
+    if (updates.executiveRole !== undefined) dbUpdates.executive_role = updates.executiveRole;
+    if (updates.executiveStructure !== undefined) dbUpdates.executive_structure = updates.executiveStructure;
+    if (updates.entryTestScore !== undefined) dbUpdates.entry_test_score = updates.entryTestScore;
+    if (updates.assignedLevel !== undefined) dbUpdates.assigned_level = updates.assignedLevel;
+    if (updates.assignedClass !== undefined) dbUpdates.assigned_class = updates.assignedClass;
+    if (updates.assignedRoom !== undefined) dbUpdates.assigned_room = updates.assignedRoom;
+    if (updates.grades !== undefined) dbUpdates.grades = updates.grades;
+    if (updates.paymentStatus !== undefined) dbUpdates.payment_status = updates.paymentStatus;
+    if (updates.paymentMethod !== undefined) dbUpdates.payment_method = updates.paymentMethod;
+    if (updates.paymentReference !== undefined) dbUpdates.payment_reference = updates.paymentReference;
+    if (updates.checkedIn !== undefined) {
+      dbUpdates.checked_in = updates.checkedIn;
+      if (updates.checkedIn) {
+        dbUpdates.checked_in_at = updates.checkedInAt || new Date().toISOString();
+      }
+    }
+    if (updates.dormitory !== undefined) dbUpdates.dormitory = updates.dormitory;
+
+    if (Object.keys(dbUpdates).length > 0) {
+      const isUuid = id.includes('-') && id.length > 25;
+      const query = isUuid ? supabase.from('participants').update(dbUpdates).eq('id', id) : supabase.from('participants').update(dbUpdates).eq('matricule', id);
+      query.then(({ error }: any) => {
+        if (error) {
+          console.warn('Sync Supabase update participant :', error.message);
+        }
+      });
+    }
+  } catch (err) {
+    console.warn('Sync Supabase update exception :', err);
+  }
+
   return updated;
 }
 

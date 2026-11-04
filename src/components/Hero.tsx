@@ -7,11 +7,13 @@ interface HeroProps {
   onOpenRegister: () => void;
   onOpenVerify: () => void;
   onOpenAdmin: () => void;
+  onOpenTest?: () => void;
 }
 
 export const Hero: React.FC<HeroProps> = ({
   config,
   onOpenRegister,
+  onOpenTest,
 }) => {
   return (
     <div id="accueil" className="relative bg-gradient-to-b from-orange-500 via-orange-600 to-amber-700 text-white overflow-hidden py-14 sm:py-20 select-none">
@@ -46,8 +48,8 @@ export const Hero: React.FC<HeroProps> = ({
           Rejoignez-nous pour une semaine enrichissante de formation spirituelle et intellectuelle. Approfondissez votre foi, tissez des liens fraternels et enrichissez vos connaissances islamiques dans une ambiance conviviale et bienveillante.
         </p>
 
-        {/* Main Prominent White Button with Orange Text */}
-        <div className="mb-10 flex justify-center">
+        {/* Main Action Buttons */}
+        <div className="mb-10 flex flex-wrap items-center justify-center gap-3">
           <button
             onClick={() => {
               const el = document.getElementById('types-inscription');
@@ -57,12 +59,23 @@ export const Hero: React.FC<HeroProps> = ({
                 onOpenRegister();
               }
             }}
-            className="px-8 py-4 rounded-full font-extrabold text-sm sm:text-base text-orange-600 bg-white hover:bg-orange-50 shadow-2xl hover:shadow-white/20 transition-all flex items-center gap-2 cursor-pointer transform hover:-translate-y-0.5 active:translate-y-0"
+            className="px-7 py-3.5 rounded-full font-extrabold text-sm sm:text-base text-orange-600 bg-white hover:bg-orange-50 shadow-2xl hover:shadow-white/20 transition-all flex items-center gap-2 cursor-pointer transform hover:-translate-y-0.5 active:translate-y-0"
           >
             <User className="w-4 h-4 fill-orange-600 text-orange-600" />
             <span>Je m'inscris maintenant</span>
             <ChevronRight className="w-4 h-4 text-orange-600" />
           </button>
+
+          {onOpenTest && (
+            <button
+              onClick={onOpenTest}
+              className="px-6 py-3.5 rounded-full font-extrabold text-sm sm:text-base text-white bg-emerald-900/90 hover:bg-emerald-950 backdrop-blur-md border border-emerald-400/50 shadow-xl transition-all flex items-center gap-2 cursor-pointer transform hover:-translate-y-0.5 active:translate-y-0"
+              title="Passer le test d'entrée QCM et obtenir mon niveau et ma salle de cours"
+            >
+              <GraduationCap className="w-5 h-5 text-amber-300" />
+              <span>📝 Test d'Entrée (Jour 1)</span>
+            </button>
+          )}
         </div>
 
         {/* Big Date Glassmorphism Card */}
