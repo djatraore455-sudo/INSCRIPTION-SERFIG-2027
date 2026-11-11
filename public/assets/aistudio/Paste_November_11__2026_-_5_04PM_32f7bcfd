@@ -1,0 +1,698 @@
+-- ============================================================
+-- SERFIG 2027 — MODULE BILAN DES COMMISSIONS
+--
+-- À exécuter APRÈS serfig_schema_final.sql et serfig_03 (nouvelle
+-- requête dans le SQL Editor). Peut être relancé sans risque.
+--
+-- Principe :
+--  * Chaque commission a son espace : ses membres (comptes Supabase
+--    liés à la commission) écrivent UNIQUEMENT les bilans et besoins
+--    de leur commission. Ils ne voient ni les participants ni les
+--    paiements.
+--  * Les administrateurs (coordination) voient tout et peuvent tout
+--    corriger, rouvrir un bilan, gérer les membres.
+--  * Un bilan = un jour = une commission : texte (fait, reste à
+--    faire, perspectives, difficultés) + indicateurs chiffrés
+--    + lignes de détail (consommations, manques, dépenses).
+--  * Un besoin est adressé à une autre commission (ou à la
+--    coordination) et suit un statut : ouvert, pris en charge,
+--    satisfait, annulé. Mises à jour en temps réel.
+--
+-- CONFIDENTIALITÉ SANTÉ : la commission Santé saisit des NOMBRES
+-- (patients reçus, urgences) et des quantités (médicaments), jamais
+-- de noms ni de diagnostics individuels.
+-- ============================================================
+
+begin;
+
+-- ------------------------------------------------------------
+-- 1. COMMISSIONS ET MEMBRES
+-- ------------------------------------------------------------
+
+create table if not exists public.commissions (
+  code text primary key check (code ~ '^[a-z0-9_]+$'),
+  name text not null,
+  sort_order integer not null default 0,
+  is_active boolean not null default true,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.commission_members (
+  user_id uuid not null references auth.users(id) on delete cascade,
+  commission_code text not null
+    references public.commissions(code) on update cascade on delete cascade,
+  member_role text not null default 'membre'
+    check (member_role in ('membre', 'chef')),
+  created_at timestamptz not null default now(),
+  primary key (user_id, commission_code)
+);
+
+create index if not exists commission_members_commission_idx
+  on public.commission_members(commission_code);
+
+-- Indicateurs chiffrés de chaque commission (modifiables par l'admin)
+create table if not exists public.commission_indicators (
+  id uuid primary key default gen_random_uuid(),
+  commission_code text not null
+    references public.commissions(code) on update cascade on delete cascade,
+  indicator_key text not null check (indicator_key ~ '^[a-z0-9_]+$'),
+  label text not null,
+  unit text,
+  sort_order integer not null default 0,
+  is_active boolean not null default true,
+  unique (commission_code, indicator_key)
+);
+
+-- ------------------------------------------------------------
+-- 2. BILANS JOURNALIERS
+-- ------------------------------------------------------------
+
+create table if not exists public.daily_reports (
+  id uuid primary key default gen_random_uuid(),
+  commission_code text not null
+    references public.commissions(code) on update cascade on delete restrict,
+  report_date date not null,
+
+  done text,          -- ce qui a été fait
+  remaining text,     -- ce qui reste à faire
+  perspectives text,  -- perspectives / prochaines actions
+  difficulties text,  -- difficultés rencontrées
+
+  status text not null default 'brouillon'
+    check (status in ('brouillon', 'soumis')),
+  submitted_at timestamptz,
+  submitted_by uuid references auth.users(id) on delete set null,
+
+  created_by uuid default auth.uid() references auth.users(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+
+  unique (commission_code, report_date)
+);
+
+create index if not exists daily_reports_date_idx
+  on public.daily_reports(report_date);
+
+-- Valeurs des indicateurs pour un bilan
+create table if not exists public.report_metrics (
+  report_id uuid not null references public.daily_reports(id) on delete cascade,
+  indicator_id uuid not null
+    references public.commission_indicators(id) on delete restrict,
+  value numeric(14,2) not null check (value >= 0),
+  primary key (report_id, indicator_id)
+);
+
+-- Lignes de détail : consommations (ex. médicaments), manques, dépenses
+create table if not exists public.report_items (
+  id uuid primary key default gen_random_uuid(),
+  report_id uuid not null references public.daily_reports(id) on delete cascade,
+  kind text not null check (kind in ('consommation', 'manque', 'depense')),
+  label text not null check (length(btrim(label)) > 0),
+  quantity numeric(14,2) check (quantity is null or quantity >= 0),
+  unit text,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists report_items_report_idx
+  on public.report_items(report_id);
+
+-- ------------------------------------------------------------
+-- 3. BESOINS EN TEMPS RÉEL
+-- ------------------------------------------------------------
+
+create table if not exists public.commission_needs (
+  id uuid primary key default gen_random_uuid(),
+  commission_code text not null
+    references public.commissions(code) on update cascade on delete restrict,
+  -- Commission à qui le besoin est adressé (null = coordination)
+  target_commission text
+    references public.commissions(code) on update cascade on delete set null,
+
+  title text not null check (length(btrim(title)) > 0),
+  details text,
+  quantity numeric(14,2) check (quantity is null or quantity > 0),
+  unit text,
+  urgency text not null default 'normale'
+    check (urgency in ('normale', 'haute', 'critique')),
+  needed_by date,
+
+  status text not null default 'ouvert'
+    check (status in ('ouvert', 'pris_en_charge', 'satisfait', 'annule')),
+  status_note text,
+  resolved_at timestamptz,
+  resolved_by uuid references auth.users(id) on delete set null,
+
+  created_by uuid default auth.uid() references auth.users(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+
+  constraint needs_not_self_targeted
+    check (target_commission is null or target_commission <> commission_code)
+);
+
+create index if not exists commission_needs_commission_idx
+  on public.commission_needs(commission_code);
+create index if not exists commission_needs_target_idx
+  on public.commission_needs(target_commission);
+create index if not exists commission_needs_status_idx
+  on public.commission_needs(status);
+
+-- ------------------------------------------------------------
+-- 4. FONCTIONS D'APPARTENANCE
+-- ------------------------------------------------------------
+
+create or replace function private.is_commission_member(p_code text)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (
+    select 1
+    from public.commission_members m
+    where m.user_id = (select auth.uid())
+      and m.commission_code = p_code
+  );
+$$;
+
+revoke all on function private.is_commission_member(text) from public, anon;
+grant execute on function private.is_commission_member(text) to authenticated;
+
+-- ------------------------------------------------------------
+-- 5. TRIGGERS
+-- ------------------------------------------------------------
+
+create or replace function private.daily_reports_guard()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if new.report_date > current_date then
+    raise exception 'La date du bilan ne peut pas être dans le futur';
+  end if;
+
+  if tg_op = 'UPDATE' then
+    if new.commission_code <> old.commission_code
+       or new.report_date <> old.report_date then
+      raise exception 'La commission et la date d''un bilan ne peuvent pas être modifiées';
+    end if;
+
+    if new.status = 'soumis' and old.status = 'brouillon' then
+      new.submitted_at := now();
+      new.submitted_by := auth.uid();
+    elsif new.status = 'brouillon' and old.status = 'soumis' then
+      new.submitted_at := null;
+      new.submitted_by := null;
+    end if;
+  else
+    if new.status = 'soumis' then
+      new.submitted_at := now();
+      new.submitted_by := auth.uid();
+    end if;
+  end if;
+
+  new.updated_at := now();
+  return new;
+end;
+$$;
+
+drop trigger if exists daily_reports_guard on public.daily_reports;
+create trigger daily_reports_guard
+  before insert or update on public.daily_reports
+  for each row execute function private.daily_reports_guard();
+
+-- Un indicateur ne peut servir qu'aux bilans de sa propre commission
+create or replace function private.report_metrics_guard()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if not exists (
+    select 1
+    from public.daily_reports r
+    join public.commission_indicators i on i.commission_code = r.commission_code
+    where r.id = new.report_id and i.id = new.indicator_id
+  ) then
+    raise exception 'Cet indicateur n''appartient pas à la commission de ce bilan';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists report_metrics_guard on public.report_metrics;
+create trigger report_metrics_guard
+  before insert or update on public.report_metrics
+  for each row execute function private.report_metrics_guard();
+
+drop trigger if exists commission_needs_touch on public.commission_needs;
+create trigger commission_needs_touch before update on public.commission_needs
+  for each row execute function private.touch_updated_at();
+
+-- ------------------------------------------------------------
+-- 6. RLS ET PRIVILÈGES
+-- ------------------------------------------------------------
+
+alter table public.commissions enable row level security;
+alter table public.commission_members enable row level security;
+alter table public.commission_indicators enable row level security;
+alter table public.daily_reports enable row level security;
+alter table public.report_metrics enable row level security;
+alter table public.report_items enable row level security;
+alter table public.commission_needs enable row level security;
+
+revoke all on table public.commissions from public, anon, authenticated;
+revoke all on table public.commission_members from public, anon, authenticated;
+revoke all on table public.commission_indicators from public, anon, authenticated;
+revoke all on table public.daily_reports from public, anon, authenticated;
+revoke all on table public.report_metrics from public, anon, authenticated;
+revoke all on table public.report_items from public, anon, authenticated;
+revoke all on table public.commission_needs from public, anon, authenticated;
+
+grant select, insert, update, delete on public.commissions to authenticated;
+grant select, insert, update, delete on public.commission_members to authenticated;
+grant select, insert, update, delete on public.commission_indicators to authenticated;
+grant select, insert, update, delete on public.daily_reports to authenticated;
+grant select, insert, update, delete on public.report_metrics to authenticated;
+grant select, insert, update, delete on public.report_items to authenticated;
+grant select, insert, update, delete on public.commission_needs to authenticated;
+
+-- Lecture publique des commissions actives (liste du formulaire d'inscription)
+grant select on public.commissions to anon;
+
+-- commissions
+drop policy if exists bilan_public_read on public.commissions;
+create policy bilan_public_read on public.commissions
+  for select to anon, authenticated
+  using (is_active = true);
+
+drop policy if exists bilan_admin_all on public.commissions;
+create policy bilan_admin_all on public.commissions
+  for all to authenticated
+  using ((select private.is_serfig_admin()))
+  with check ((select private.is_serfig_admin()));
+
+-- commission_members : un membre voit ses propres lignes ; l'admin gère tout
+drop policy if exists bilan_own_membership on public.commission_members;
+create policy bilan_own_membership on public.commission_members
+  for select to authenticated
+  using (user_id = (select auth.uid()));
+
+drop policy if exists bilan_admin_all on public.commission_members;
+create policy bilan_admin_all on public.commission_members
+  for all to authenticated
+  using ((select private.is_serfig_admin()))
+  with check ((select private.is_serfig_admin()));
+
+-- commission_indicators : lecture pour les membres, gestion par l'admin
+drop policy if exists bilan_member_read on public.commission_indicators;
+create policy bilan_member_read on public.commission_indicators
+  for select to authenticated
+  using ((select private.is_commission_member(commission_code)));
+
+drop policy if exists bilan_admin_all on public.commission_indicators;
+create policy bilan_admin_all on public.commission_indicators
+  for all to authenticated
+  using ((select private.is_serfig_admin()))
+  with check ((select private.is_serfig_admin()));
+
+-- daily_reports
+drop policy if exists bilan_member_select on public.daily_reports;
+create policy bilan_member_select on public.daily_reports
+  for select to authenticated
+  using ((select private.is_commission_member(commission_code)));
+
+drop policy if exists bilan_member_insert on public.daily_reports;
+create policy bilan_member_insert on public.daily_reports
+  for insert to authenticated
+  with check (
+    (select private.is_commission_member(commission_code))
+    and status = 'brouillon'
+  );
+
+-- Un membre ne modifie que les bilans encore en brouillon
+drop policy if exists bilan_member_update on public.daily_reports;
+create policy bilan_member_update on public.daily_reports
+  for update to authenticated
+  using (
+    (select private.is_commission_member(commission_code))
+    and status = 'brouillon'
+  )
+  with check ((select private.is_commission_member(commission_code)));
+
+drop policy if exists bilan_admin_all on public.daily_reports;
+create policy bilan_admin_all on public.daily_reports
+  for all to authenticated
+  using ((select private.is_serfig_admin()))
+  with check ((select private.is_serfig_admin()));
+
+-- report_metrics et report_items : suivent le bilan parent
+-- (la sous-requête sur daily_reports applique déjà la RLS ci-dessus)
+drop policy if exists bilan_member_select on public.report_metrics;
+create policy bilan_member_select on public.report_metrics
+  for select to authenticated
+  using (exists (select 1 from public.daily_reports r where r.id = report_id));
+
+drop policy if exists bilan_member_write on public.report_metrics;
+create policy bilan_member_write on public.report_metrics
+  for all to authenticated
+  using (exists (
+    select 1 from public.daily_reports r
+    where r.id = report_id and r.status = 'brouillon'
+  ))
+  with check (exists (
+    select 1 from public.daily_reports r
+    where r.id = report_id and r.status = 'brouillon'
+  ));
+
+drop policy if exists bilan_admin_all on public.report_metrics;
+create policy bilan_admin_all on public.report_metrics
+  for all to authenticated
+  using ((select private.is_serfig_admin()))
+  with check ((select private.is_serfig_admin()));
+
+drop policy if exists bilan_member_select on public.report_items;
+create policy bilan_member_select on public.report_items
+  for select to authenticated
+  using (exists (select 1 from public.daily_reports r where r.id = report_id));
+
+drop policy if exists bilan_member_write on public.report_items;
+create policy bilan_member_write on public.report_items
+  for all to authenticated
+  using (exists (
+    select 1 from public.daily_reports r
+    where r.id = report_id and r.status = 'brouillon'
+  ))
+  with check (exists (
+    select 1 from public.daily_reports r
+    where r.id = report_id and r.status = 'brouillon'
+  ));
+
+drop policy if exists bilan_admin_all on public.report_items;
+create policy bilan_admin_all on public.report_items
+  for all to authenticated
+  using ((select private.is_serfig_admin()))
+  with check ((select private.is_serfig_admin()));
+
+-- commission_needs : visibles par la commission demandeuse, la commission
+-- sollicitée et l'admin. Création par la commission demandeuse. Les
+-- changements de statut passent par need_set_status().
+drop policy if exists bilan_needs_select on public.commission_needs;
+create policy bilan_needs_select on public.commission_needs
+  for select to authenticated
+  using (
+    (select private.is_commission_member(commission_code))
+    or (target_commission is not null
+        and (select private.is_commission_member(target_commission)))
+  );
+
+drop policy if exists bilan_needs_insert on public.commission_needs;
+create policy bilan_needs_insert on public.commission_needs
+  for insert to authenticated
+  with check (
+    (select private.is_commission_member(commission_code))
+    and status = 'ouvert'
+  );
+
+drop policy if exists bilan_admin_all on public.commission_needs;
+create policy bilan_admin_all on public.commission_needs
+  for all to authenticated
+  using ((select private.is_serfig_admin()))
+  with check ((select private.is_serfig_admin()));
+
+-- ------------------------------------------------------------
+-- 7. FONCTIONS APPELÉES PAR L'APPLICATION
+-- ------------------------------------------------------------
+
+-- Commissions auxquelles l'utilisateur connecté a accès
+-- (admin : toutes, avec le rôle 'admin')
+create or replace function public.my_commissions()
+returns table (code text, name text, member_role text)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select c.code, c.name, 'admin'::text as member_role
+  from public.commissions c
+  where (select private.is_serfig_admin()) and c.is_active
+  union all
+  select c.code, c.name, m.member_role
+  from public.commission_members m
+  join public.commissions c on c.code = m.commission_code
+  where m.user_id = (select auth.uid())
+    and not (select private.is_serfig_admin())
+    and c.is_active
+  order by 1;
+$$;
+
+revoke all on function public.my_commissions() from public, anon, authenticated;
+grant execute on function public.my_commissions() to authenticated;
+
+-- Changement de statut d'un besoin
+create or replace function public.need_set_status(
+  p_need_id uuid,
+  p_status text,
+  p_note text default null
+)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v public.commission_needs%rowtype;
+  v_admin boolean;
+  v_req boolean;
+  v_tgt boolean;
+begin
+  if p_status not in ('ouvert', 'pris_en_charge', 'satisfait', 'annule') then
+    raise exception 'Statut invalide : %', p_status;
+  end if;
+
+  select * into v from public.commission_needs where id = p_need_id for update;
+  if not found then
+    raise exception 'Besoin introuvable';
+  end if;
+
+  v_admin := (select private.is_serfig_admin());
+  v_req := private.is_commission_member(v.commission_code);
+  v_tgt := v.target_commission is not null
+           and private.is_commission_member(v.target_commission);
+
+  if not (v_admin or v_req or v_tgt) then
+    raise exception 'Accès refusé' using errcode = '42501';
+  end if;
+
+  if not v_admin then
+    if v.status in ('satisfait', 'annule') then
+      raise exception 'Ce besoin est déjà clôturé';
+    end if;
+    if p_status = 'ouvert' then
+      raise exception 'Seule la coordination peut rouvrir un besoin';
+    end if;
+    if p_status = 'pris_en_charge' and not v_tgt then
+      raise exception 'Seule la commission sollicitée peut prendre en charge ce besoin';
+    end if;
+    if p_status = 'annule' and not v_req then
+      raise exception 'Seule la commission demandeuse peut annuler son besoin';
+    end if;
+  end if;
+
+  update public.commission_needs
+  set status = p_status,
+      status_note = coalesce(p_note, status_note),
+      resolved_at = case when p_status in ('satisfait', 'annule') then now() else null end,
+      resolved_by = case when p_status in ('satisfait', 'annule') then auth.uid() else null end
+  where id = p_need_id;
+end;
+$$;
+
+revoke all on function public.need_set_status(uuid, text, text)
+  from public, anon, authenticated;
+grant execute on function public.need_set_status(uuid, text, text) to authenticated;
+
+-- Gestion des membres (admin) : le compte doit d'abord exister dans
+-- Supabase (Authentication > Users).
+create or replace function public.admin_add_commission_member(
+  p_email text,
+  p_commission_code text,
+  p_role text default 'membre'
+)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_uid uuid;
+begin
+  if not (select private.is_serfig_admin()) then
+    raise exception 'Accès refusé' using errcode = '42501';
+  end if;
+  if p_role not in ('membre', 'chef') then
+    raise exception 'Rôle invalide : %', p_role;
+  end if;
+
+  select id into v_uid from auth.users
+  where lower(email) = lower(btrim(p_email));
+
+  if v_uid is null then
+    raise exception 'Aucun compte avec cet e-mail : crée-le d''abord dans Supabase (Authentication > Users)';
+  end if;
+
+  insert into public.commission_members (user_id, commission_code, member_role)
+  values (v_uid, p_commission_code, p_role)
+  on conflict (user_id, commission_code)
+  do update set member_role = excluded.member_role;
+end;
+$$;
+
+create or replace function public.admin_remove_commission_member(
+  p_email text,
+  p_commission_code text
+)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if not (select private.is_serfig_admin()) then
+    raise exception 'Accès refusé' using errcode = '42501';
+  end if;
+
+  delete from public.commission_members m
+  using auth.users u
+  where u.id = m.user_id
+    and lower(u.email) = lower(btrim(p_email))
+    and m.commission_code = p_commission_code;
+end;
+$$;
+
+create or replace function public.admin_list_commission_members()
+returns table (commission_code text, email text, member_role text)
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+begin
+  if not (select private.is_serfig_admin()) then
+    raise exception 'Accès refusé' using errcode = '42501';
+  end if;
+
+  return query
+  select m.commission_code, u.email::text, m.member_role
+  from public.commission_members m
+  join auth.users u on u.id = m.user_id
+  order by m.commission_code, u.email;
+end;
+$$;
+
+revoke all on function public.admin_add_commission_member(text, text, text)
+  from public, anon, authenticated;
+revoke all on function public.admin_remove_commission_member(text, text)
+  from public, anon, authenticated;
+revoke all on function public.admin_list_commission_members()
+  from public, anon, authenticated;
+grant execute on function public.admin_add_commission_member(text, text, text) to authenticated;
+grant execute on function public.admin_remove_commission_member(text, text) to authenticated;
+grant execute on function public.admin_list_commission_members() to authenticated;
+
+-- ------------------------------------------------------------
+-- 8. TEMPS RÉEL (besoins et bilans)
+-- ------------------------------------------------------------
+
+do $$
+begin
+  if exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
+    begin
+      alter publication supabase_realtime add table public.commission_needs;
+    exception when duplicate_object then null;
+    end;
+    begin
+      alter publication supabase_realtime add table public.daily_reports;
+    exception when duplicate_object then null;
+    end;
+  end if;
+end $$;
+
+-- ------------------------------------------------------------
+-- 9. DONNÉES INITIALES (modifiables ensuite dans l'espace admin)
+-- ------------------------------------------------------------
+
+insert into public.commissions (code, name, sort_order) values
+  ('formation',      'Formation',               1),
+  ('administration', 'Administration',          2),
+  ('hygiene',        'Hygiène et cadre de vie', 3),
+  ('finance',        'Finance',                 4),
+  ('sante',          'Santé',                   5),
+  ('logistique',     'Logistique et transport', 6),
+  ('mobilisation',   'Mobilisation',            7),
+  ('protocole',      'Protocole',               8),
+  ('restauration',   'Restauration',            9),
+  ('pepiniere',      'Pépinière',              10),
+  ('communication',  'Communication',          11)
+on conflict (code) do nothing;
+
+insert into public.commission_indicators (commission_code, indicator_key, label, unit, sort_order) values
+  ('formation', 'cours_dispenses',        'Cours dispensés',                 'cours',       1),
+  ('formation', 'formateurs_presents',    'Formateurs présents',             'personnes',   2),
+  ('formation', 'seminaristes_presents',  'Séminaristes présents en cours',  'personnes',   3),
+  ('formation', 'copies_corrigees',       'Copies corrigées',                'copies',      4),
+
+  ('administration', 'seminaristes_recus','Séminaristes reçus',              'personnes',   1),
+  ('administration', 'formateurs_recus',  'Formateurs reçus',                'personnes',   2),
+  ('administration', 'visiteurs_recus',   'Visiteurs reçus',                 'personnes',   3),
+  ('administration', 'badges_remis',      'Badges remis',                    'badges',      4),
+  ('administration', 'documents_traites', 'Documents traités',               'documents',   5),
+
+  ('hygiene', 'sanitaires_nettoyes',      'Passages de nettoyage des sanitaires', 'passages', 1),
+  ('hygiene', 'salles_nettoyees',         'Salles nettoyées',                'salles',      2),
+  ('hygiene', 'evacuations_dechets',      'Évacuations de déchets',          'évacuations', 3),
+  ('hygiene', 'incidents',                'Incidents signalés',              'incidents',   4),
+
+  ('finance', 'encaissements_especes',    'Encaissements en espèces',        'FCFA',        1),
+  ('finance', 'encaissements_wave',       'Encaissements Wave',              'FCFA',        2),
+  ('finance', 'depenses_jour',            'Dépenses du jour',                'FCFA',        3),
+  ('finance', 'inscriptions_regularisees','Inscriptions régularisées',       'personnes',   4),
+
+  ('sante', 'patients_recus',             'Patients reçus',                  'personnes',   1),
+  ('sante', 'premiers_soins',             'Soins de premiers secours',       'soins',       2),
+  ('sante', 'cas_urgence',                'Cas d''urgence',                  'cas',         3),
+  ('sante', 'evacuations_sanitaires',     'Évacuations sanitaires',          'cas',         4),
+
+  ('logistique', 'trajets_effectues',     'Trajets effectués',               'trajets',     1),
+  ('logistique', 'passagers_transportes', 'Passagers transportés',           'personnes',   2),
+  ('logistique', 'livraisons_materiel',   'Livraisons de matériel',          'livraisons',  3),
+  ('logistique', 'incidents_transport',   'Incidents de transport',          'incidents',   4),
+
+  ('mobilisation', 'contacts_realises',   'Contacts réalisés',               'contacts',    1),
+  ('mobilisation', 'relances_effectuees', 'Relances effectuées',             'relances',    2),
+  ('mobilisation', 'sous_comites_representes','Sous-comités représentés',    'sous-comités',3),
+
+  ('protocole', 'personnalites_accueillies','Personnalités accueillies',     'personnes',   1),
+  ('protocole', 'seances_encadrees',      'Séances encadrées',               'séances',     2),
+  ('protocole', 'incidents_ordre',        'Incidents d''ordre',              'incidents',   3),
+
+  ('restauration', 'petits_dejeuners',    'Petits-déjeuners servis',         'repas',       1),
+  ('restauration', 'dejeuners',           'Déjeuners servis',                'repas',       2),
+  ('restauration', 'diners',              'Dîners servis',                   'repas',       3),
+  ('restauration', 'incidents',           'Incidents (retard, rupture)',     'incidents',   4),
+
+  ('pepiniere', 'participants_presents',  'Participants présents',           'personnes',   1),
+  ('pepiniere', 'activites_realisees',    'Activités réalisées',             'activités',   2),
+  ('pepiniere', 'encadreurs_presents',    'Encadreurs présents',             'personnes',   3),
+  ('pepiniere', 'incidents',              'Incidents',                       'incidents',   4),
+
+  ('communication', 'publications',       'Publications réalisées',          'publications',1),
+  ('communication', 'medias_produits',    'Photos et vidéos produites',      'médias',      2),
+  ('communication', 'comptes_rendus',     'Comptes rendus rédigés',          'documents',   3)
+on conflict (commission_code, indicator_key) do nothing;
+
+commit;

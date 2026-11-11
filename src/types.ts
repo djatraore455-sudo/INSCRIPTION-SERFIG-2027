@@ -86,6 +86,7 @@ export interface Participant {
   medicalDetails?: string;
   dormitory?: string;
   transportMode?: string;
+  transportFee?: number;
   photoUrl?: string;
   receiptNumber?: string;
   clothingType?: 'aucun' | 'polo' | 'tshirt';

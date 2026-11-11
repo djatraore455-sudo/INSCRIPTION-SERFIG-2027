@@ -560,15 +560,26 @@ export const RegistrationReceipt: React.FC<RegistrationReceiptProps> = ({
                 <div className="flex items-baseline justify-between border-b border-slate-100 pb-1">
                   <span className="text-slate-600 font-medium text-xs">Montant de la participation :</span>
                   <span className="font-bold text-slate-900">
-                    {participant.registrationFee} FCFA
+                    {participant.registrationFee === 0 
+                      ? '0 FCFA (Offerte - Prise en charge)' 
+                      : `${participant.registrationFee} FCFA`}
                   </span>
                 </div>
 
                 {participant.hasPolo && (
                   <div className="flex items-baseline justify-between border-b border-slate-100 pb-1">
-                    <span className="text-slate-600 font-medium text-xs">Montant Vêtement ({participant.clothingType === 'tshirt' ? 'Tee-shirt' : 'Polo'}) :</span>
+                    <span className="text-slate-600 font-medium text-xs">Montant Article ({participant.clothingType === 'tshirt' ? 'T-shirt officiel' : 'Polo officiel'}) :</span>
                     <span className="font-bold text-slate-900">
                       {participant.clothingFee || (participant.clothingType === 'tshirt' ? config.tshirtPrice : config.poloPrice)} FCFA
+                    </span>
+                  </div>
+                )}
+
+                {((participant.transportFee !== undefined && participant.transportFee > 0) || (participant.transportMode && participant.transportMode.includes('Convoi'))) && (
+                  <div className="flex items-baseline justify-between border-b border-slate-100 pb-1">
+                    <span className="text-slate-600 font-medium text-xs">Frais de Transport (Convoi officiel) :</span>
+                    <span className="font-bold text-slate-900">
+                      {participant.transportFee || 1500} FCFA
                     </span>
                   </div>
                 )}

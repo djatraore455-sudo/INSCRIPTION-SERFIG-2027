@@ -283,9 +283,11 @@ export const SeminarOverview: React.FC<SeminarOverviewProps> = ({
                 {/* Price Box */}
                 <div className="bg-[#f8fafc] rounded-2xl py-4 px-4 text-center my-6 border border-slate-100">
                   <p className="text-2xl sm:text-3xl font-black text-[#f26315] tracking-tight">
-                    {(config.commissionFee || 2000).toLocaleString('fr-FR').replace(/\u202F/g, ' ')} FCFA
+                    {config.commissionFee && config.commissionFee > 0 
+                      ? `${config.commissionFee.toLocaleString('fr-FR').replace(/\u202F/g, ' ')} FCFA` 
+                      : 'Gratuit'}
                   </p>
-                  <p className="text-[11px] text-slate-400 mt-0.5">Frais d'inscription</p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">Pour les membres de commission</p>
                 </div>
 
                 {/* Action button */}

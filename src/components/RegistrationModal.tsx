@@ -23,7 +23,8 @@ import {
   ArrowLeft, 
   ArrowRight,
   Shirt,
-  HeartPulse
+  HeartPulse,
+  CheckCircle
 } from 'lucide-react';
 
 interface RegistrationModalProps {
@@ -115,6 +116,8 @@ export const RegistrationModal: React.FC<RegistrationModalProps> = ({
   // COMMISSION SPÉCIFIQUE (une seule page)
   // -------------------------------------------------------------
   const [commissionName, setCommissionName] = useState(COMMISSIONS_LIST[0]);
+  const [commissionClothing, setCommissionClothing] = useState<'aucun' | 'polo' | 'tshirt'>('aucun');
+  const [commissionTransport, setCommissionTransport] = useState<'personnel' | 'convoi'>('personnel');
 
   // Synchronisation lors de l'ouverture
   useEffect(() => {
@@ -134,15 +137,27 @@ export const RegistrationModal: React.FC<RegistrationModalProps> = ({
   const isMinor = age !== null && age < 18;
 
   // Tarifs
+  const isFormateur = activeTab === 'formateur';
+  const isCommission = activeTab === 'commission';
   const activeSubCommitteeObj = config.subCommittees.find(sc => sc.name === subCommittee) || config.subCommittees[0];
-  const participantFee = activeTab === 'formateur' 
+
+  // Les membres du comité d'organisation ne paient plus de participation (0 FCFA)
+  const participantFee = isFormateur || isCommission 
     ? 0 
-    : activeTab === 'commission' 
-      ? (config.commissionFee || 2000) 
-      : (activeSubCommitteeObj?.fee || 2000);
+    : (activeSubCommitteeObj?.fee || 2000);
+
+  // Articles existants (Polo 2500 FCFA, T-shirt 2000 FCFA ou Aucun)
+  const clothingFee = isCommission
+    ? (commissionClothing === 'polo' ? (config.poloPrice || 2500) : commissionClothing === 'tshirt' ? (config.tshirtPrice || 2000) : 0)
+    : (wantsPolo ? (config.poloPrice || 2500) : 0);
+
+  // Moyen de transport pour commission (Convoi 1500 FCFA ou Personnel 0 FCFA)
+  const transportFee = isCommission
+    ? (commissionTransport === 'convoi' ? 1500 : 0)
+    : 0;
   
-  const poloFee = wantsPolo ? (config.poloPrice || 2500) : 0;
-  const totalToPay = participantFee + poloFee;
+  const poloFee = clothingFee;
+  const totalToPay = participantFee + clothingFee + transportFee;
 
   // Gestion du téléversement de la photo
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -241,22 +256,23 @@ export const RegistrationModal: React.FC<RegistrationModalProps> = ({
     if (!nom.trim()) newErrors.nom = 'Le nom est obligatoire.';
     if (!prenom.trim()) newErrors.prenom = 'Le prénom est obligatoire.';
     if (!phone.trim()) newErrors.phone = 'Le contact est obligatoire.';
-    if (!photoUrl) newErrors.photo = 'La photo est obligatoire pour les membres de commission.';
-    if (!wavePhoneNumber.trim()) {
-      newErrors.wavePhoneNumber = 'Le numéro Wave est obligatoire.';
+    if (!photoUrl) newErrors.photo = 'La photo est obligatoire pour le badge officiel du comité d\'organisation.';
+    if (totalToPay > 0 && !wavePhoneNumber.trim()) {
+      newErrors.wavePhoneNumber = 'Le numéro Wave est obligatoire pour régler les options choisies (articles / transport).';
     }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   // -------------------------------------------------------------
-  // ENVOI DE L'INSCRIPTION (JAMAIS PAYÉE PAR DÉFAUT)
+  // ENVOI DE L'INSCRIPTION
   // -------------------------------------------------------------
   const submitRegistration = async () => {
     setIsSubmitting(true);
     try {
       const isFormateur = activeTab === 'formateur';
-      const actualPaymentStatus = isFormateur ? 'gratuit' : 'en_attente';
+      const isCommission = activeTab === 'commission';
+      const actualPaymentStatus = (isFormateur || (isCommission && totalToPay === 0)) ? 'gratuit' : 'en_attente';
       const fullParticipantName = `${nom.trim().toUpperCase()} ${prenom.trim()}`;
 
       const created = addParticipant({
@@ -274,6 +290,12 @@ export const RegistrationModal: React.FC<RegistrationModalProps> = ({
         schoolLevel: activeTab === 'seminariste' ? schoolLevel : undefined,
         photoUrl: photoUrl || undefined,
 
+        // Transport (Convoi 1 500 FCFA ou Personnel)
+        transportMode: isCommission 
+          ? (commissionTransport === 'convoi' ? 'Convoi officiel (1 500 FCFA)' : 'Moyen personnel (0 FCFA)')
+          : undefined,
+        transportFee: isCommission ? transportFee : 0,
+
         // Responsabilités AEEMCI & Orientation Pédagogique
         isExecutiveMember: activeTab === 'seminariste' ? isExecutiveMember : false,
         executiveRole: activeTab === 'seminariste' && isExecutiveMember ? executiveRole : undefined,
@@ -281,24 +303,24 @@ export const RegistrationModal: React.FC<RegistrationModalProps> = ({
         assignedLevel: activeTab === 'seminariste' && isExecutiveMember ? 'Responsable de Base' : undefined,
         assignedClass: activeTab === 'seminariste' && isExecutiveMember ? 'Responsable de Base' : undefined,
 
-        // Polo
-        hasPolo: wantsPolo,
-        clothingType: wantsPolo ? 'polo' : 'aucun',
-        poloSize: wantsPolo ? poloSize : undefined,
-        poloColor: wantsPolo ? poloColor : undefined,
-        clothingFee: poloFee,
+        // Articles & Vêtements
+        hasPolo: isCommission ? (commissionClothing !== 'aucun') : wantsPolo,
+        clothingType: isCommission ? commissionClothing : (wantsPolo ? 'polo' : 'aucun'),
+        poloSize: (isCommission ? commissionClothing !== 'aucun' : wantsPolo) ? poloSize : undefined,
+        poloColor: (isCommission ? commissionClothing !== 'aucun' : wantsPolo) ? poloColor : undefined,
+        clothingFee,
 
         // Formateur & Commission
         trainerSubtype: isFormateur ? (trainerSubtype as any) : undefined,
         commission: activeTab === 'commission' ? commissionName : undefined,
         wavePhoneNumber: wavePhoneNumber.trim() || undefined,
 
-        // Finances (Statut en attente ou gratuit)
+        // Finances (Participation offerte 0 FCFA + options éventuelles)
         registrationFee: participantFee,
-        poloFee,
+        poloFee: clothingFee,
         totalFee: totalToPay,
         paymentStatus: actualPaymentStatus,
-        paymentMethod: isFormateur ? undefined : 'Wave'
+        paymentMethod: actualPaymentStatus === 'gratuit' ? undefined : 'Wave'
       }, config);
 
       confetti({
@@ -1421,14 +1443,16 @@ export const RegistrationModal: React.FC<RegistrationModalProps> = ({
             {/* CAS 3 : FORMULAIRE MEMBRE DE COMMISSION (UNE SEULE PAGE)      */}
             {/* ------------------------------------------------------------- */}
             {activeTab === 'commission' && (
-              <div className="bg-white rounded-[12px] shadow-xl border border-gray-100 p-5 sm:p-7 space-y-4">
-                <div className="border-b border-gray-200 pb-3 mb-5">
+              <div className="bg-white rounded-[12px] shadow-xl border border-gray-100 p-5 sm:p-7 space-y-5">
+                {/* En-tête avec titre */}
+                <div className="border-b border-gray-200 pb-3 mb-2">
                   <h2 className="text-[20px] font-bold text-[#1F2937] flex items-center gap-2">
                     <Users className="w-6 h-6 text-[#F97316]" />
-                    <span>Inscription Membre de Commission</span>
+                    <span>Inscription Membre du Comité d'Organisation</span>
                   </h2>
                 </div>
 
+                {/* Identité Personnelle */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {/* Nom */}
                   <div>
@@ -1468,7 +1492,7 @@ export const RegistrationModal: React.FC<RegistrationModalProps> = ({
                 {/* Contact (pleine largeur) */}
                 <div>
                   <label className="block text-[12px] font-medium text-[#374151] mb-1">
-                    contact <span className="text-[#EF4444]">*</span>
+                    contact téléphonique <span className="text-[#EF4444]">*</span>
                   </label>
                   <input
                     type="tel"
@@ -1486,7 +1510,7 @@ export const RegistrationModal: React.FC<RegistrationModalProps> = ({
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-[12px] font-medium text-[#374151] mb-1">
-                      sous-comité <span className="text-[#EF4444]">*</span>
+                      sous-comité d'origine <span className="text-[#EF4444]">*</span>
                     </label>
                     <select
                       value={subCommittee}
@@ -1501,7 +1525,7 @@ export const RegistrationModal: React.FC<RegistrationModalProps> = ({
 
                   <div>
                     <label className="block text-[12px] font-medium text-[#374151] mb-1">
-                      commission <span className="text-[#EF4444]">*</span>
+                      commission d'affectation <span className="text-[#EF4444]">*</span>
                     </label>
                     <select
                       value={commissionName}
@@ -1515,17 +1539,17 @@ export const RegistrationModal: React.FC<RegistrationModalProps> = ({
                   </div>
                 </div>
 
-                {/* Ajouter une photo (obligatoire) */}
+                {/* Ajouter une photo (obligatoire pour badge officiel) */}
                 <div>
                   <label className="block text-[12px] font-medium text-[#374151] mb-1">
-                    ajouter une photo <span className="text-[#EF4444]">*</span>
+                    photo d'identité <span className="text-[#EF4444]">*</span>
                   </label>
                   {photoUrl ? (
                     <div className="flex items-center gap-3 p-3 bg-[#F9FAFB] border border-gray-200 rounded-lg">
                       <img
                         src={photoUrl}
                         alt="Membre commission"
-                        className="w-16 h-16 rounded-lg object-cover border border-emerald-500 shrink-0"
+                        className="w-16 h-16 rounded-lg object-cover border-2 border-emerald-500 shrink-0"
                       />
                       <div>
                         <label className="text-xs font-semibold text-[#F97316] hover:underline cursor-pointer block">
@@ -1537,17 +1561,17 @@ export const RegistrationModal: React.FC<RegistrationModalProps> = ({
                             onChange={handlePhotoUpload}
                           />
                         </label>
-                        <span className="text-[11px] text-gray-500">Photo enregistrée</span>
+                        <span className="text-[11px] text-gray-500">Photo enregistrée pour le badge officiel</span>
                       </div>
                     </div>
                   ) : (
                     <label className="border-2 border-dashed border-gray-300 hover:border-[#F97316] rounded-lg p-5 flex flex-col items-center justify-center cursor-pointer transition-all bg-[#F9FAFB] hover:bg-orange-50/30">
                       <UploadCloud className="w-6 h-6 text-gray-400 mb-1" />
                       <span className="text-xs font-semibold text-[#1F2937]">
-                        Cliquez pour ajouter une photo
+                        Cliquez pour ajouter votre photo
                       </span>
                       <span className="text-[10px] text-gray-400 mt-0.5">
-                        Obligatoire pour le badge officiel Commission
+                        Indispensable pour la plastification du badge officiel du comité d'organisation
                       </span>
                       <input
                         type="file"
@@ -1560,36 +1584,127 @@ export const RegistrationModal: React.FC<RegistrationModalProps> = ({
                   {errors.photo && <p className="text-[12px] text-[#EF4444] mt-1">{errors.photo}</p>}
                 </div>
 
-                {/* Boîte Polo (charte) */}
-                <div className="bg-[#F9FAFB] border border-[#E5E7EB] rounded-lg p-4 space-y-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <label className="flex items-center gap-2.5 cursor-pointer select-none">
-                      <input
-                        type="checkbox"
-                        checked={wantsPolo}
-                        onChange={e => setWantsPolo(e.target.checked)}
-                        className="w-4 h-4 text-[#F97316] rounded border-gray-300 focus:ring-[#F97316]"
-                      />
-                      <span className="text-sm font-semibold text-[#1F2937]">
-                        Je souhaite commander un polo
-                      </span>
-                    </label>
-                    <span className="text-sm font-bold text-[#F97316] shrink-0">
-                      + {formatFCFA(config.poloPrice || 2500)}
+                {/* ─── ARTICLES OFFICIELS DISPONIBLES (POLO / T-SHIRT / AUCUN) ─── */}
+                <div className="bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl p-4 sm:p-5 space-y-3.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Shirt className="w-4 h-4 text-[#F97316]" />
+                      <label className="text-xs font-bold text-slate-900 uppercase tracking-wide">
+                        Articles Officiels SERFIG 2027 (Optionnel)
+                      </label>
+                    </div>
+                    <span className="text-[10px] uppercase font-bold text-slate-500 bg-slate-200/60 px-2 py-0.5 rounded">
+                      Au choix
                     </span>
                   </div>
-                  <p className="text-[12px] text-gray-500">
-                    Polo officiel SERFIG 2027 de qualité supérieure avec logo brodé.
+
+                  <p className="text-[11px] text-slate-600">
+                    Sélectionnez l'article officiel que vous souhaitez porter durant le séminaire :
                   </p>
 
-                  {wantsPolo && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-gray-200">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    {/* Option 1: Polo officiel */}
+                    <div
+                      onClick={() => setCommissionClothing('polo')}
+                      className={`p-3.5 rounded-xl border-2 cursor-pointer transition-all flex flex-col justify-between ${
+                        commissionClothing === 'polo'
+                          ? 'border-orange-500 bg-orange-50/70 shadow-xs ring-2 ring-orange-200'
+                          : 'border-slate-200 bg-white hover:border-slate-300'
+                      }`}
+                    >
                       <div>
-                        <label className="block text-[12px] font-medium text-[#374151] mb-1">taille</label>
+                        <div className="flex items-start justify-between gap-1">
+                          <span className="font-extrabold text-xs text-slate-900">Polo Officiel</span>
+                          <span className="text-xs font-black text-orange-600 shrink-0">
+                            +{formatFCFA(config.poloPrice || 2500)}
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-slate-500 mt-1 leading-tight">
+                          Maille piquée haute qualité avec logo brodé SERFIG.
+                        </p>
+                      </div>
+                      <span className="mt-3 text-[10px] font-bold text-orange-700 flex items-center gap-1">
+                        <span className={`w-3 h-3 rounded-full border flex items-center justify-center ${
+                          commissionClothing === 'polo' ? 'bg-orange-600 border-orange-600' : 'border-slate-300'
+                        }`}>
+                          {commissionClothing === 'polo' && <span className="w-1 h-1 bg-white rounded-full"></span>}
+                        </span>
+                        {commissionClothing === 'polo' ? 'Polo sélectionné' : 'Choisir le Polo'}
+                      </span>
+                    </div>
+
+                    {/* Option 2: T-shirt officiel */}
+                    <div
+                      onClick={() => setCommissionClothing('tshirt')}
+                      className={`p-3.5 rounded-xl border-2 cursor-pointer transition-all flex flex-col justify-between ${
+                        commissionClothing === 'tshirt'
+                          ? 'border-orange-500 bg-orange-50/70 shadow-xs ring-2 ring-orange-200'
+                          : 'border-slate-200 bg-white hover:border-slate-300'
+                      }`}
+                    >
+                      <div>
+                        <div className="flex items-start justify-between gap-1">
+                          <span className="font-extrabold text-xs text-slate-900">T-shirt Officiel</span>
+                          <span className="text-xs font-black text-orange-600 shrink-0">
+                            +{formatFCFA(config.tshirtPrice || 2000)}
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-slate-500 mt-1 leading-tight">
+                          100% coton peigné résistant avec visuel homologué.
+                        </p>
+                      </div>
+                      <span className="mt-3 text-[10px] font-bold text-orange-700 flex items-center gap-1">
+                        <span className={`w-3 h-3 rounded-full border flex items-center justify-center ${
+                          commissionClothing === 'tshirt' ? 'bg-orange-600 border-orange-600' : 'border-slate-300'
+                        }`}>
+                          {commissionClothing === 'tshirt' && <span className="w-1 h-1 bg-white rounded-full"></span>}
+                        </span>
+                        {commissionClothing === 'tshirt' ? 'T-shirt sélectionné' : 'Choisir le T-shirt'}
+                      </span>
+                    </div>
+
+                    {/* Option 3: Aucun */}
+                    <div
+                      onClick={() => setCommissionClothing('aucun')}
+                      className={`p-3.5 rounded-xl border-2 cursor-pointer transition-all flex flex-col justify-between ${
+                        commissionClothing === 'aucun'
+                          ? 'border-emerald-600 bg-emerald-50/70 shadow-xs ring-2 ring-emerald-200'
+                          : 'border-slate-200 bg-white hover:border-slate-300'
+                      }`}
+                    >
+                      <div>
+                        <div className="flex items-start justify-between gap-1">
+                          <span className="font-extrabold text-xs text-slate-900">Aucun Article</span>
+                          <span className="text-xs font-black text-emerald-700 shrink-0">
+                            0 FCFA
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-slate-500 mt-1 leading-tight">
+                          Sans commande de vêtement (port de vos effets personnels).
+                        </p>
+                      </div>
+                      <span className="mt-3 text-[10px] font-bold text-emerald-800 flex items-center gap-1">
+                        <span className={`w-3 h-3 rounded-full border flex items-center justify-center ${
+                          commissionClothing === 'aucun' ? 'bg-emerald-600 border-emerald-600' : 'border-slate-300'
+                        }`}>
+                          {commissionClothing === 'aucun' && <span className="w-1 h-1 bg-white rounded-full"></span>}
+                        </span>
+                        {commissionClothing === 'aucun' ? 'Aucun sélectionné' : 'Sans article'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Options de taille et couleur si un article est sélectionné */}
+                  {commissionClothing !== 'aucun' && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3 border-t border-slate-200 animate-in fade-in">
+                      <div>
+                        <label className="block text-[12px] font-medium text-[#374151] mb-1">
+                          Taille ({commissionClothing === 'polo' ? 'Polo' : 'T-shirt'}) <span className="text-[#EF4444]">*</span>
+                        </label>
                         <select
                           value={poloSize}
                           onChange={e => setPoloSize(e.target.value as any)}
-                          className="w-full h-10 px-3 bg-white border border-[#E5E7EB] rounded-lg text-[16px] text-[#1F2937] focus:outline-none focus:border-[#F97316]"
+                          className="w-full h-10 px-3 bg-white border border-[#E5E7EB] rounded-lg text-[15px] font-semibold text-[#1F2937] focus:outline-none focus:border-[#F97316]"
                         >
                           <option value="S">S</option>
                           <option value="M">M</option>
@@ -1601,11 +1716,13 @@ export const RegistrationModal: React.FC<RegistrationModalProps> = ({
                       </div>
 
                       <div>
-                        <label className="block text-[12px] font-medium text-[#374151] mb-1">couleur</label>
+                        <label className="block text-[12px] font-medium text-[#374151] mb-1">
+                          Couleur souhaitée <span className="text-[#EF4444]">*</span>
+                        </label>
                         <select
                           value={poloColor}
                           onChange={e => setPoloColor(e.target.value)}
-                          className="w-full h-10 px-3 bg-white border border-[#E5E7EB] rounded-lg text-[16px] text-[#1F2937] focus:outline-none focus:border-[#F97316]"
+                          className="w-full h-10 px-3 bg-white border border-[#E5E7EB] rounded-lg text-[15px] font-semibold text-[#1F2937] focus:outline-none focus:border-[#F97316]"
                         >
                           <option value="Vert Forêt AEEMCI">Vert Forêt AEEMCI</option>
                           <option value="Blanc Cérémonie">Blanc Cérémonie</option>
@@ -1616,47 +1733,160 @@ export const RegistrationModal: React.FC<RegistrationModalProps> = ({
                   )}
                 </div>
 
-                {/* Carte récapitulatif */}
-                <div className="bg-[#F9FAFB] border border-[#E5E7EB] rounded-lg p-4 space-y-2">
-                  <div className="flex justify-between text-xs text-gray-600">
-                    <span>Frais d'inscription (Commission)</span>
-                    <span className="font-semibold text-gray-900">{formatFCFA(participantFee)}</span>
-                  </div>
-                  {wantsPolo && (
-                    <div className="flex justify-between text-xs text-gray-600">
-                      <span>Polo SERFIG 2027</span>
-                      <span className="font-semibold text-gray-900">{formatFCFA(poloFee)}</span>
+                {/* ─── MOYEN DE TRANSPORT (CONVOIS 1500 FCFA OU PERSONNEL) ─── */}
+                <div className="bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl p-4 sm:p-5 space-y-3.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-base">🚌</span>
+                      <label className="text-xs font-bold text-slate-900 uppercase tracking-wide">
+                        Moyen de Transport vers le Séminaire
+                      </label>
                     </div>
-                  )}
-                  <div className="border-t border-gray-200 pt-2 flex items-baseline justify-between">
-                    <span className="text-xs font-bold text-gray-700 uppercase">Total à payer</span>
-                    <span className="text-[22px] font-bold text-[#F97316]">
+                    <span className="text-[10px] uppercase font-bold text-orange-700 bg-orange-100 px-2 py-0.5 rounded">
+                      À préciser
+                    </span>
+                  </div>
+
+                  <p className="text-[11px] text-slate-600">
+                    Indiquez comment vous rejoindrez le site du séminaire à Gagnoa :
+                  </p>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* Option Convoi */}
+                    <div
+                      onClick={() => setCommissionTransport('convoi')}
+                      className={`p-3.5 rounded-xl border-2 cursor-pointer transition-all flex flex-col justify-between ${
+                        commissionTransport === 'convoi'
+                          ? 'border-orange-500 bg-orange-50/70 shadow-xs ring-2 ring-orange-200'
+                          : 'border-slate-200 bg-white hover:border-slate-300'
+                      }`}
+                    >
+                      <div>
+                        <div className="flex items-start justify-between gap-1">
+                          <span className="font-extrabold text-xs text-slate-900 flex items-center gap-1.5">
+                            <span>🚌</span> Convoi Officiel Organisé
+                          </span>
+                          <span className="text-xs font-black text-orange-600 shrink-0">
+                            +1 500 FCFA
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-600 mt-1.5 leading-relaxed">
+                          Départ groupé en car ou minicar affrété par l'AEEMCI pour un voyage sécurisé et convivial avec les séminaristes.
+                        </p>
+                      </div>
+                      <span className="mt-3 text-[10px] font-bold text-orange-700 flex items-center gap-1">
+                        <span className={`w-3 h-3 rounded-full border flex items-center justify-center ${
+                          commissionTransport === 'convoi' ? 'bg-orange-600 border-orange-600' : 'border-slate-300'
+                        }`}>
+                          {commissionTransport === 'convoi' && <span className="w-1 h-1 bg-white rounded-full"></span>}
+                        </span>
+                        {commissionTransport === 'convoi' ? 'Convoi sélectionné (+1 500 FCFA)' : 'Prendre le Convoi (1 500 FCFA)'}
+                      </span>
+                    </div>
+
+                    {/* Option Personnel */}
+                    <div
+                      onClick={() => setCommissionTransport('personnel')}
+                      className={`p-3.5 rounded-xl border-2 cursor-pointer transition-all flex flex-col justify-between ${
+                        commissionTransport === 'personnel'
+                          ? 'border-emerald-600 bg-emerald-50/70 shadow-xs ring-2 ring-emerald-200'
+                          : 'border-slate-200 bg-white hover:border-slate-300'
+                      }`}
+                    >
+                      <div>
+                        <div className="flex items-start justify-between gap-1">
+                          <span className="font-extrabold text-xs text-slate-900 flex items-center gap-1.5">
+                            <span>🚗</span> Moyen Personnel
+                          </span>
+                          <span className="text-xs font-black text-emerald-700 shrink-0">
+                            0 FCFA
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-600 mt-1.5 leading-relaxed">
+                          Déplacement autonome à votre charge (véhicule personnel, covoiturage direct ou transport régulier).
+                        </p>
+                      </div>
+                      <span className="mt-3 text-[10px] font-bold text-emerald-800 flex items-center gap-1">
+                        <span className={`w-3 h-3 rounded-full border flex items-center justify-center ${
+                          commissionTransport === 'personnel' ? 'bg-emerald-600 border-emerald-600' : 'border-slate-300'
+                        }`}>
+                          {commissionTransport === 'personnel' && <span className="w-1 h-1 bg-white rounded-full"></span>}
+                        </span>
+                        {commissionTransport === 'personnel' ? 'Moyen personnel sélectionné (0 FCFA)' : 'Venir par mes propres moyens'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* ─── CARTE RÉCAPITULATIF FINANCIER DÉTAILLÉ ─── */}
+                <div className="bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl p-4 sm:p-5 space-y-2.5">
+                  <div className="flex justify-between items-center text-xs text-slate-700">
+                    <span className="flex items-center gap-1.5">
+                      <span>Participation Comité d'Organisation :</span>
+                      <span className="text-[10px] font-black uppercase text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded border border-emerald-300">
+                        Offerte
+                      </span>
+                    </span>
+                    <span className="font-bold text-emerald-700">0 FCFA</span>
+                  </div>
+
+                  <div className="flex justify-between items-center text-xs text-slate-700">
+                    <span>Article choisi ({commissionClothing === 'polo' ? `Polo ${poloSize} (${poloColor})` : commissionClothing === 'tshirt' ? `T-shirt ${poloSize} (${poloColor})` : 'Aucun'}) :</span>
+                    <span className="font-bold text-slate-900">{formatFCFA(clothingFee)}</span>
+                  </div>
+
+                  <div className="flex justify-between items-center text-xs text-slate-700">
+                    <span>Moyen de transport ({commissionTransport === 'convoi' ? 'Convoi officiel organisé' : 'Moyen personnel'}) :</span>
+                    <span className="font-bold text-slate-900">{formatFCFA(transportFee)}</span>
+                  </div>
+
+                  <div className="border-t border-gray-200 pt-3 flex items-baseline justify-between">
+                    <div>
+                      <span className="text-xs font-black text-slate-800 uppercase block tracking-wider">
+                        Total Net à Régler
+                      </span>
+                      <span className="text-[11px] text-slate-500">
+                        {totalToPay === 0 
+                          ? 'Participation 100% gratuite (sans paiement requis)' 
+                          : 'Règlement des options choisies uniquement'}
+                      </span>
+                    </div>
+                    <span className={`text-[24px] font-black ${totalToPay === 0 ? 'text-emerald-600' : 'text-[#F97316]'}`}>
                       {formatFCFA(totalToPay)}
                     </span>
                   </div>
                 </div>
 
-                {/* Numéro Wave */}
-                <div>
-                  <label className="block text-[12px] font-medium text-[#374151] mb-1">
-                    numéro wave <span className="text-[#EF4444]">*</span>
-                  </label>
-                  <input
-                    type="tel"
-                    value={wavePhoneNumber}
-                    onChange={e => setWavePhoneNumber(e.target.value)}
-                    placeholder="07 XX XX XX XX"
-                    className={`w-full h-10 px-3 bg-white border rounded-lg text-[16px] text-[#1F2937] placeholder-[#9CA3AF] focus:outline-none focus:border-[#F97316] ${
-                      errors.wavePhoneNumber ? 'border-red-400' : 'border-[#E5E7EB]'
-                    }`}
-                  />
-                  <p className="text-[11px] text-gray-500 mt-1">
-                    Le paiement sera effectué via Wave Money.
-                  </p>
-                  {errors.wavePhoneNumber && (
-                    <p className="text-[12px] text-[#EF4444] mt-1">{errors.wavePhoneNumber}</p>
-                  )}
-                </div>
+                {/* ─── GESTION DU PAIEMENT WAVE (REQUIS SEULEMENT SI OPTIONS > 0 FCFA) ─── */}
+                {totalToPay > 0 ? (
+                  <div className="p-4 rounded-xl bg-orange-50 border border-orange-200 space-y-2 animate-in fade-in">
+                    <label className="block text-[12px] font-bold text-slate-900 mb-1">
+                      Numéro Wave pour le règlement ({formatFCFA(totalToPay)}) <span className="text-[#EF4444]">*</span>
+                    </label>
+                    <input
+                      type="tel"
+                      value={wavePhoneNumber}
+                      onChange={e => setWavePhoneNumber(e.target.value)}
+                      placeholder="07 XX XX XX XX"
+                      className={`w-full h-10 px-3 bg-white border rounded-lg text-[16px] text-[#1F2937] placeholder-[#9CA3AF] focus:outline-none focus:border-[#F97316] ${
+                        errors.wavePhoneNumber ? 'border-red-400' : 'border-orange-300'
+                      }`}
+                    />
+                    <p className="text-[11px] text-slate-600">
+                      Ce numéro servira à valider le paiement Wave pour vos options (article / transport convoi).
+                    </p>
+                    {errors.wavePhoneNumber && (
+                      <p className="text-[12px] text-[#EF4444] font-medium">{errors.wavePhoneNumber}</p>
+                    )}
+                  </div>
+                ) : (
+                  <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-900 font-semibold flex items-center gap-2.5 animate-in fade-in">
+                    <CheckCircle className="w-5 h-5 text-emerald-600 shrink-0" />
+                    <span>
+                      Montant total : <strong>0 FCFA</strong>. Aucun paiement requis.
+                    </span>
+                  </div>
+                )}
 
                 {/* Boutons d'action */}
                 <div className="border-t border-gray-200 pt-4 mt-6 flex items-center justify-between">
@@ -1678,17 +1908,26 @@ export const RegistrationModal: React.FC<RegistrationModalProps> = ({
                       }
                     }}
                     disabled={isSubmitting}
-                    className="px-6 py-2.5 bg-[#10B981] hover:bg-emerald-600 disabled:opacity-50 text-white text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center gap-2 shadow-sm"
+                    className={`px-6 py-2.5 disabled:opacity-50 text-white text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-2 shadow-md active:scale-95 ${
+                      totalToPay === 0 
+                        ? 'bg-[#10B981] hover:bg-emerald-700' 
+                        : 'bg-[#F97316] hover:bg-[#EA580C]'
+                    }`}
                   >
                     {isSubmitting ? (
                       <>
                         <Loader2 className="w-4 h-4 animate-spin text-white" />
                         <span>Envoi en cours...</span>
                       </>
+                    ) : totalToPay === 0 ? (
+                      <>
+                        <Check className="w-4 h-4 stroke-[3]" />
+                        <span>Valider mon Inscription</span>
+                      </>
                     ) : (
                       <>
-                        <Check className="w-4 h-4" />
-                        <span>Soumettre l'inscription</span>
+                        <Check className="w-4 h-4 stroke-[3]" />
+                        <span>Valider & Régler {formatFCFA(totalToPay)}</span>
                       </>
                     )}
                   </button>

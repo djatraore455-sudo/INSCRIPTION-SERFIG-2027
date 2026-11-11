@@ -59,7 +59,8 @@ import {
   History,
   Award,
   Database,
-  DoorOpen
+  DoorOpen,
+  Layers
 } from 'lucide-react';
 import { AdminMessaging } from './admin/AdminMessaging';
 import { AdminMedical } from './admin/AdminMedical';
@@ -67,6 +68,7 @@ import { AdminSchedule } from './admin/AdminSchedule';
 import { AdminActivityLogs } from './admin/AdminActivityLogs';
 import { AdminCertificates } from './admin/AdminCertificates';
 import { BatchBadgesPrint } from './admin/BatchBadgesPrint';
+import { CommissionsManager } from './admin/commissions/CommissionsManager';
 import { PWAInstallButton } from './PWAInstallButton';
 
 interface AdminPageProps {
@@ -145,7 +147,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({
 
   // ─── NAVIGATION ────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState<
-    'dashboard' | 'participants' | 'payments' | 'checkin' | 'dormitories' | 'clothing' | 'printables' | 'config' | 'account' | 'messaging' | 'medical' | 'schedule' | 'activity' | 'certificates'
+    'dashboard' | 'participants' | 'payments' | 'checkin' | 'dormitories' | 'clothing' | 'printables' | 'config' | 'account' | 'messaging' | 'medical' | 'schedule' | 'activity' | 'certificates' | 'commissions'
   >('dashboard');
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState<boolean>(false);
   const [isHeaderDropdownOpen, setIsHeaderDropdownOpen] = useState<boolean>(false);
@@ -865,12 +867,12 @@ export const AdminPage: React.FC<AdminPageProps> = ({
     try {
       // Frais lus dans sub_committees et seminar_config 'pricing'
       const matchedSc = subCommitteesDb.find(s => s.name === newParticipantForm.subCommittee);
-      const regFee = newParticipantForm.type === 'formateur' 
+      const regFee = (newParticipantForm.type === 'formateur' || newParticipantForm.type === 'commission')
         ? 0 
-        : (newParticipantForm.type === 'commission' ? (seminarConfigDb.pricing?.commission || 2000) : (matchedSc?.registration_fee || 2000));
+        : (matchedSc?.registration_fee || 2000);
       
       const poloFee = newParticipantForm.hasPolo ? (seminarConfigDb.pricing?.polo || 2500) : 0;
-      const initialPaymentStatus = newParticipantForm.type === 'formateur' ? 'gratuit' : 'en_attente';
+      const initialPaymentStatus = (newParticipantForm.type === 'formateur' || (newParticipantForm.type === 'commission' && !newParticipantForm.hasPolo)) ? 'gratuit' : 'en_attente';
       const clothingType = newParticipantForm.hasPolo ? 'polo' : 'aucun';
 
       const { data, error } = await supabase
@@ -1085,7 +1087,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({
   const [maxCapacity, setMaxCapacity] = useState<number>(450);
   const [poloPrice, setPoloPrice] = useState<number>(2500);
   const [tshirtPrice, setTshirtPrice] = useState<number>(2000);
-  const [commissionPrice, setCommissionPrice] = useState<number>(2000);
+  const [commissionPrice, setCommissionPrice] = useState<number>(0);
   const [isSavingConfig, setIsSavingConfig] = useState<boolean>(false);
   const [configSuccessMsg, setConfigSuccessMsg] = useState<string>('');
 
@@ -1648,6 +1650,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({
                 {activeTab === 'schedule' && 'Programme Officiel du Séminaire (Phase 2)'}
                 {activeTab === 'activity' && 'Journal d\'Activité & Audit (Phase 2)'}
                 {activeTab === 'certificates' && 'Attestations & Bilan Final (Phase 2)'}
+                {activeTab === 'commissions' && 'Coordination Inter-Commissions, Bilans & Mur des Besoins'}
               </p>
             </div>
           </div>
@@ -1840,6 +1843,18 @@ export const AdminPage: React.FC<AdminPageProps> = ({
           >
             <Award className="w-4 h-4" />
             <span>Attestations & Bilan</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('commissions')}
+            className={`px-3.5 py-2 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
+              activeTab === 'commissions' 
+                ? 'bg-emerald-700 text-white shadow-xs ring-2 ring-emerald-300' 
+                : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200'
+            }`}
+          >
+            <Layers className="w-4 h-4 text-emerald-600" />
+            <span>Bilans & Besoins (11 Commissions)</span>
           </button>
           <button
             type="button"
@@ -3417,7 +3432,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({
 
                   <div>
                     <label className="block text-xs font-bold text-slate-700 mb-1">
-                      Frais Membre de Commission
+                      Frais de Participation Commission (0 FCFA = Offert)
                     </label>
                     <input
                       type="number"
@@ -3646,6 +3661,11 @@ export const AdminPage: React.FC<AdminPageProps> = ({
             }}
           />
         )}
+
+        {/* ─── MODULE COLLABORATIF : BILANS DES COMMISSIONS & BESOINS ─── */}
+        {activeTab === 'commissions' && (
+          <CommissionsManager />
+        )}
       </div>
 
       {/* ─── BARRE FIXE EN BAS SUR MOBILE (5 ENTRÉES) ──────────────── */}
@@ -3768,6 +3788,15 @@ export const AdminPage: React.FC<AdminPageProps> = ({
               >
                 <Award className="w-5 h-5 text-orange-600" />
                 <span>Attestations & Bilan Final (Phase 2)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => { setActiveTab('commissions'); setIsMoreMenuOpen(false); }}
+                className="w-full p-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 flex items-center gap-3 transition-colors text-left font-bold"
+              >
+                <Layers className="w-5 h-5 text-emerald-600" />
+                <span>Bilans & Mur des Besoins (11 Commissions)</span>
               </button>
 
               <button

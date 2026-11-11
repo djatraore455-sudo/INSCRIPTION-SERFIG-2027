@@ -41,7 +41,7 @@ export const SERFIG_2027_CONFIG: SeminarConfig = {
   ],
   poloPrice: 2500,
   tshirtPrice: 2000,
-  commissionFee: 2000,
+  commissionFee: 0,
   contacts: {
     primaryPhone: '(+225) 0788609677',
     secondaryPhone: '(+225) 0556265900',
@@ -102,7 +102,7 @@ export const SEFIHA_2026_CONFIG: SeminarConfig = {
   ],
   poloPrice: 2000,
   tshirtPrice: 2000,
-  commissionFee: 2000,
+  commissionFee: 0,
   contacts: {
     primaryPhone: '+225 05 64 03 55 95',
     secondaryPhone: '+225 05 05 75 57 41',
@@ -271,6 +271,6 @@ export const FAQ_ITEMS = [
   },
   {
     question: 'Comment les formateurs et membres de commission s\'enregistrent-ils ?',
-    answer: 'Le portail dispose d\'onglets dédiés : les formateurs et intervenants sont pris en charge à 100% gratuitement. Les membres des commissions d\'organisation (restauration, sécurité, santé, média...) s\'enregistrent avec un tarif d\'organisation de 2 000 FCFA incluant leur badge officiel de commission.'
+    answer: 'Le portail dispose d\'onglets dédiés : les formateurs et les membres du comité d\'organisation (commissions) bénéficient d\'une participation 100% gratuite (0 FCFA). Les membres de commission peuvent commander en option leurs articles officiels (Polo à 2 500 FCFA ou T-shirt à 2 000 FCFA) et souscrire au convoi de transport officiel (1 500 FCFA) ou venir par leurs propres moyens (personnel).'
   }
 ];

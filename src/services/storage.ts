@@ -144,6 +144,8 @@ export function addParticipant(participantData: Omit<Participant, 'id' | 'matric
       has_medical_condition: newParticipant.hasMedicalCondition ?? false,
       medical_details: newParticipant.hasMedicalCondition ? (newParticipant.medicalDetails || null) : null,
       photo_path: newParticipant.photoUrl || null,
+      dormitory: newParticipant.dormitory || null,
+      transport_mode: newParticipant.transportMode || null,
       has_polo: newParticipant.hasPolo ?? false,
       polo_size: newParticipant.poloSize || null,
       polo_color: newParticipant.poloColor || null,
